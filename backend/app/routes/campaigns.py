@@ -42,6 +42,7 @@ def create_campaign():
 
 @bp.route('', methods=['GET'])
 def list_campaigns():
+    # Return only LIVE campaigns for the browse/explore page
     campaigns = Campaign.query.filter_by(funding_status='live').all()
     return jsonify([{
         'id': c.id,
@@ -52,6 +53,34 @@ def list_campaigns():
         'revenue_share_pct': c.revenue_share_pct,
         'funding_status': c.funding_status,
         'artist_id': c.artist_id,
+        'created_at': c.created_at.isoformat()
+    } for c in campaigns]), 200
+
+
+@bp.route('/my-campaigns', methods=['GET'])
+@jwt_required()
+def get_my_campaigns():
+    # Return ALL campaigns for the current artist (including draft, live, etc.)
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+    
+    if not user or user.role != 'artist':
+        return jsonify({'error': 'Only artists can view their campaigns'}), 403
+    
+    campaigns = Campaign.query.filter_by(artist_id=user_id).all()
+    return jsonify([{
+        'id': c.id,
+        'title': c.title,
+        'description': c.description,
+        'target_amount': c.target_amount,
+        'amount_raised': c.amount_raised,
+        'revenue_share_pct': c.revenue_share_pct,
+        'partition_price': c.partition_price,
+        'total_partitions': c.total_partitions,
+        'funding_status': c.funding_status,
+        'artist_id': c.artist_id,
+        'expected_streams_3m': c.expected_streams_3m,
+        'expected_revenue_3m': c.expected_revenue_3m,
         'created_at': c.created_at.isoformat()
     } for c in campaigns]), 200
 

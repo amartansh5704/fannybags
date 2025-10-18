@@ -1,0 +1,239 @@
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from app import db
+from app.models import Campaign, User, Partition
+from datetime import datetime
+
+bp = Blueprint('campaigns', __name__, url_prefix='/api/campaigns')
+
+@bp.route('', methods=['POST'])
+@jwt_required()
+def create_campaign():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if user.role != 'artist':
+        return jsonify({'error': 'Only artists can create campaigns'}), 403
+    data = request.get_json()
+    required_fields = ['title', 'target_amount', 'revenue_share_pct', 'partition_price']
+    if not all(field in data for field in required_fields):
+        return jsonify({'error': 'Missing required fields'}), 400
+    total_partitions = int(data['target_amount'] / data['partition_price'])
+    campaign = Campaign(
+        artist_id=user_id,
+        title=data['title'],
+        description=data.get('description'),
+        target_amount=data['target_amount'],
+        revenue_share_pct=data['revenue_share_pct'],
+        partition_price=data['partition_price'],
+        total_partitions=total_partitions,
+        min_partitions_per_user=data.get('min_partitions_per_user', 1),
+        sharing_term=data.get('sharing_term'),
+        expected_streams_3m=data.get('expected_streams_3m'),
+        expected_revenue_3m=data.get('expected_revenue_3m')
+    )
+    db.session.add(campaign)
+    db.session.commit()
+    return jsonify({
+        'message': 'Campaign created successfully',
+        'campaign_id': campaign.id,
+        'title': campaign.title,
+        'total_partitions': total_partitions
+    }), 201
+
+@bp.route('', methods=['GET'])
+def list_campaigns():
+    campaigns = Campaign.query.filter_by(funding_status='live').all()
+    return jsonify([{
+        'id': c.id,
+        'title': c.title,
+        'description': c.description,
+        'target_amount': c.target_amount,
+        'amount_raised': c.amount_raised,
+        'revenue_share_pct': c.revenue_share_pct,
+        'funding_status': c.funding_status,
+        'artist_id': c.artist_id,
+        'created_at': c.created_at.isoformat()
+    } for c in campaigns]), 200
+
+@bp.route('/<int:campaign_id>', methods=['GET'])
+def get_campaign(campaign_id):
+    campaign = Campaign.query.get(campaign_id)
+    if not campaign:
+        return jsonify({'error': 'Campaign not found'}), 404
+    artist = User.query.get(campaign.artist_id)
+    return jsonify({
+        'id': campaign.id,
+        'title': campaign.title,
+        'description': campaign.description,
+        'target_amount': campaign.target_amount,
+        'amount_raised': campaign.amount_raised,
+        'revenue_share_pct': campaign.revenue_share_pct,
+        'partition_price': campaign.partition_price,
+        'total_partitions': campaign.total_partitions,
+        'funding_status': campaign.funding_status,
+        'artist_name': artist.name if artist else 'Unknown',
+        'sharing_term': campaign.sharing_term,
+        'expected_streams_3m': campaign.expected_streams_3m,
+        'expected_revenue_3m': campaign.expected_revenue_3m,
+        'created_at': campaign.created_at.isoformat()
+    }), 200
+
+@bp.route('/<int:campaign_id>/publish', methods=['POST'])
+@jwt_required()
+def publish_campaign(campaign_id):
+    user_id = int(get_jwt_identity())  # Convert string to integer
+    campaign = Campaign.query.get(campaign_id)
+    if not campaign:
+        return jsonify({'error': 'Campaign not found'}), 404
+    if campaign.artist_id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    campaign.funding_status = 'live'
+    db.session.commit()
+    return jsonify({
+        'message': 'Campaign published successfully',
+        'campaign_id': campaign.id
+    }), 200
+
+@bp.route('/<int:campaign_id>/analytics', methods=['GET'])
+@jwt_required()
+def get_campaign_analytics(campaign_id):
+    user_id = get_jwt_identity()
+    campaign = Campaign.query.get(campaign_id)
+    if not campaign:
+        return jsonify({'error': 'Campaign not found'}), 404
+    if campaign.artist_id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    partitions = Partition.query.filter_by(campaign_id=campaign_id, status='confirmed').all()
+    total_partitions_sold = sum(p.partitions_bought for p in partitions)
+    num_investors = len(set(p.buyer_id for p in partitions))
+    return jsonify({
+        'campaign_id': campaign.id,
+        'title': campaign.title,
+        'target_amount': campaign.target_amount,
+        'amount_raised': campaign.amount_raised,
+        'partitions_sold': total_partitions_sold,
+        'total_partitions': campaign.total_partitions,
+        'number_of_investors': num_investors,
+        'progress_percent': (campaign.amount_raised / campaign.target_amount * 100) if campaign.target_amount > 0 else 0
+    }), 200
+
+@bp.route('/<int:campaign_id>/revenue/upload', methods=['POST'])
+@jwt_required()
+def upload_revenue(campaign_id):
+    user_id = int(get_jwt_identity())  # Convert to int
+    campaign = Campaign.query.get(campaign_id)
+    
+    if not campaign:
+        return jsonify({'error': 'Campaign not found'}), 404
+    
+    if campaign.artist_id != user_id:
+        return jsonify({
+            'error': 'Unauthorized - only artist can upload',
+            'debug': {
+                'campaign_artist_id': campaign.artist_id,
+                'your_user_id': user_id,
+                'types': f'campaign: {type(campaign.artist_id).__name__}, user: {type(user_id).__name__}'
+            }
+        }), 403
+    
+    data = request.get_json()
+    amount = data.get('amount')
+    source = data.get('source', 'manual')
+    
+    if not amount or amount <= 0:
+        return jsonify({'error': 'Valid amount is required'}), 400
+    
+    from app.models import RevenueEvent
+    
+    revenue_event = RevenueEvent(
+        campaign_id=campaign_id,
+        source=source,
+        amount=amount,
+        currency='INR',
+        gross_or_net='gross',
+        processed=False
+    )
+    
+    db.session.add(revenue_event)
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Revenue recorded successfully',
+        'revenue_event_id': revenue_event.id,
+        'campaign_id': campaign_id,
+        'amount': amount,
+        'source': source,
+        'created_at': revenue_event.created_at.isoformat()
+    }), 201
+
+@bp.route('/<int:campaign_id>/distribute', methods=['POST'])
+@jwt_required()
+def distribute_revenue(campaign_id):
+    user_id = int(get_jwt_identity())
+    campaign = Campaign.query.get(campaign_id)
+    
+    if not campaign:
+        return jsonify({'error': 'Campaign not found'}), 404
+    
+    if campaign.artist_id != user_id:
+        print(f"DEBUG 403: campaign.artist_id={campaign.artist_id}, user_id={user_id}, types: {type(campaign.artist_id)}, {type(user_id)}")
+        return jsonify({'error': 'Unauthorized - only artist can distribute'}), 403
+    
+    from app.models import RevenueEvent, Distribution, InvestorHolding
+    
+    unprocessed_revenue = RevenueEvent.query.filter_by(
+        campaign_id=campaign_id,
+        processed=False
+    ).all()
+    
+    if not unprocessed_revenue:
+        return jsonify({'error': 'No unprocessed revenue to distribute'}), 400
+    
+    total_revenue = sum(r.amount for r in unprocessed_revenue)
+    
+    platform_fee_pct = 0.05
+    platform_fee = total_revenue * platform_fee_pct
+    
+    investor_pool = total_revenue * (campaign.revenue_share_pct / 100)
+    
+    holdings = InvestorHolding.query.filter_by(campaign_id=campaign_id).all()
+    
+    if not holdings:
+        return jsonify({'error': 'No investors to distribute to'}), 400
+    
+    distribution_data = {}
+    
+    for holding in holdings:
+        investor_share = (holding.partitions_owned / campaign.total_partitions) * investor_pool
+        distribution_data[str(holding.investor_id)] = {
+            'investor_id': holding.investor_id,
+            'partitions_owned': holding.partitions_owned,
+            'share_amount': investor_share
+        }
+    
+    distribution = Distribution(
+        revenue_event_id=unprocessed_revenue[0].id,
+        campaign_id=campaign_id,
+        total_allocated_to_investors=investor_pool,
+        platform_fee=platform_fee,
+        distribution_data=distribution_data,
+        distributed=False
+    )
+    
+    for revenue in unprocessed_revenue:
+        revenue.processed = True
+    
+    db.session.add(distribution)
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Revenue distribution calculated successfully',
+        'distribution_id': distribution.id,
+        'total_revenue': total_revenue,
+        'platform_fee': platform_fee,
+        'platform_fee_pct': platform_fee_pct * 100,
+        'artist_share': total_revenue - investor_pool - platform_fee,
+        'investor_pool': investor_pool,
+        'investor_pool_pct': campaign.revenue_share_pct,
+        'distribution_breakdown': distribution_data
+    }), 201

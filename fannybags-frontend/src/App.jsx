@@ -1,0 +1,34 @@
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { useAuthStore } from './store/authStore';
+import Navbar from './components/common/Navbar';
+import Landing from './pages/Landing';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Dashboard from './pages/Dashboard';
+import CampaignBrowse from './pages/CampaignBrowse';
+import CampaignDetail from './pages/CampaignDetail';
+
+function App() {
+  const initializeAuth = useAuthStore((state) => state.initializeAuth);
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
+  return (
+    <BrowserRouter>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/campaigns" element={<CampaignBrowse />} />
+        <Route path="/campaign/:id" element={<CampaignDetail />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+export default App;

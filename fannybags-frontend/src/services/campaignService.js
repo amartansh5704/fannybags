@@ -24,8 +24,29 @@ export const campaignService = {
     return response.data;
   },
 
+  uploadRevenue: async (campaignId, data) => {
+    const response = await api.post(`/campaigns/${campaignId}/revenue/upload`, data);
+    return response.data;
+  },
+
   getAnalytics: async (campaignId) => {
     const response = await api.get(`/campaigns/${campaignId}/analytics`);
     return response.data;
   },
+
+  publishCampaign: async (campaignId) => {
+  const response = await api.post(`/campaigns/${campaignId}/publish`);
+  return response.data;
+},
+
+getMyArtistCampaigns: async () => {
+  const response = await api.get('/campaigns/my-campaigns');
+  return response.data;
+},
+
+distributeRevenue: async (campaignId) => {
+  const response = await api.post(`/campaigns/${campaignId}/distribute`);
+  return response.data;
+},
+
 };

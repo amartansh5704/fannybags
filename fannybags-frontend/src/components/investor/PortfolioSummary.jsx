@@ -1,8 +1,11 @@
 export default function PortfolioSummary({ holdings, totalExpected }) {
-
   const numberOfCampaigns = holdings.length;
+  
   const averageOwnership = numberOfCampaigns > 0
-    ? (holdings.reduce((sum, h) => sum + h.ownership_pct, 0) / numberOfCampaigns).toFixed(2)
+    ? (holdings.reduce((sum, h) => {
+        const ownership = h.your_ownership_pct || h.ownership_pct || 0;
+        return sum + (isNaN(ownership) ? 0 : ownership);
+      }, 0) / numberOfCampaigns).toFixed(2)
     : 0;
 
   return (
@@ -14,12 +17,12 @@ export default function PortfolioSummary({ holdings, totalExpected }) {
 
       <div className="bg-fb-surface p-6 rounded-lg border border-fb-green">
         <p className="text-gray-400 text-sm mb-2">Expected Return (3m)</p>
-        <p className="text-3xl font-bold text-fb-green">₹{totalExpected.toFixed(0)}</p>
+        <p className="text-3xl font-bold text-fb-green">₹{(totalExpected || 0).toFixed(0)}</p>
       </div>
 
       <div className="bg-fb-surface p-6 rounded-lg border border-fb-purple">
         <p className="text-gray-400 text-sm mb-2">Avg Ownership</p>
-        <p className="text-3xl font-bold text-white">{averageOwnership}%</p>
+        <p className="text-3xl font-bold text-white">{isNaN(averageOwnership) ? '0' : averageOwnership}%</p>
       </div>
 
       <div className="bg-fb-surface p-6 rounded-lg border border-gray-600">

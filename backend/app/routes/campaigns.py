@@ -18,6 +18,21 @@ def create_campaign():
     if not all(field in data for field in required_fields):
         return jsonify({'error': 'Missing required fields'}), 400
     total_partitions = int(data['target_amount'] / data['partition_price'])
+    
+    # Convert string dates to datetime objects
+    start_date = None
+    end_date = None
+    if data.get('start_date'):
+        try:
+            start_date = datetime.fromisoformat(data['start_date'])
+        except:
+            return jsonify({'error': 'Invalid start_date format'}), 400
+    if data.get('end_date'):
+        try:
+            end_date = datetime.fromisoformat(data['end_date'])
+        except:
+            return jsonify({'error': 'Invalid end_date format'}), 400
+    
     campaign = Campaign(
         artist_id=user_id,
         title=data['title'],
@@ -29,7 +44,9 @@ def create_campaign():
         min_partitions_per_user=data.get('min_partitions_per_user', 1),
         sharing_term=data.get('sharing_term'),
         expected_streams_3m=data.get('expected_streams_3m'),
-        expected_revenue_3m=data.get('expected_revenue_3m')
+        expected_revenue_3m=data.get('expected_revenue_3m'),
+        start_date=start_date,
+        end_date=end_date
     )
     db.session.add(campaign)
     db.session.commit()
@@ -53,7 +70,9 @@ def list_campaigns():
         'revenue_share_pct': c.revenue_share_pct,
         'funding_status': c.funding_status,
         'artist_id': c.artist_id,
-        'created_at': c.created_at.isoformat()
+        'created_at': c.created_at.isoformat(),
+        'start_date': c.start_date.isoformat() if c.start_date else None,
+        'end_date': c.end_date.isoformat() if c.end_date else None
     } for c in campaigns]), 200
 
 
@@ -81,7 +100,9 @@ def get_my_campaigns():
         'artist_id': c.artist_id,
         'expected_streams_3m': c.expected_streams_3m,
         'expected_revenue_3m': c.expected_revenue_3m,
-        'created_at': c.created_at.isoformat()
+        'created_at': c.created_at.isoformat(),
+        'start_date': c.start_date.isoformat() if c.start_date else None,
+        'end_date': c.end_date.isoformat() if c.end_date else None
     } for c in campaigns]), 200
 
 @bp.route('/<int:campaign_id>', methods=['GET'])
@@ -104,7 +125,9 @@ def get_campaign(campaign_id):
         'sharing_term': campaign.sharing_term,
         'expected_streams_3m': campaign.expected_streams_3m,
         'expected_revenue_3m': campaign.expected_revenue_3m,
-        'created_at': campaign.created_at.isoformat()
+        'created_at': campaign.created_at.isoformat(),
+        'start_date': campaign.start_date.isoformat() if campaign.start_date else None,
+        'end_date': campaign.end_date.isoformat() if campaign.end_date else None
     }), 200
 
 @bp.route('/<int:campaign_id>/publish', methods=['POST'])

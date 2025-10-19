@@ -1,12 +1,38 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { campaignService } from '../services/campaignService';
+import ProgressBar from '../components/common/ProgressBar';
+import StatusBadge from '../components/common/StatusBadge';
 
 export default function CampaignBrowse() {
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
+
+  // Function to determine campaign status
+  const getCampaignStatus = (campaign) => {
+    const today = new Date();
+    
+    // Handle null dates gracefully
+    const endDate = campaign.end_date ? new Date(campaign.end_date) : null;
+    const startDate = campaign.start_date ? new Date(campaign.start_date) : null;
+    
+    const percentage = (campaign.amount_raised / campaign.target_amount) * 100;
+
+    // If campaign has ended
+    if (endDate && today > endDate) {
+      return percentage >= 100 ? 'successful' : 'failed';
+    }
+    
+    // If campaign hasn't started
+    if (startDate && today < startDate) {
+      return 'upcoming';
+    }
+    
+    // Campaign is currently active
+    return 'active';
+  };
 
   useEffect(() => {
     const fetchCampaigns = async () => {
@@ -60,44 +86,53 @@ export default function CampaignBrowse() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {campaigns.map((campaign) => (
-              <div
-                key={campaign.id}
-                onClick={() => navigate(`/campaign/${campaign.id}`)}
-                className="bg-fb-surface p-6 rounded-lg cursor-pointer hover:transform hover:scale-105 transition"
-              >
-                <div className="mb-4">
-                  <div className="w-full h-40 bg-gradient-to-r from-fb-purple to-fb-pink rounded flex items-center justify-center">
-                    <span className="text-2xl">🎵</span>
+            {campaigns.map((campaign) => {
+              const percentage = (campaign.amount_raised / campaign.target_amount) * 100;
+              const status = getCampaignStatus(campaign);
+
+              return (
+                <div
+                  key={campaign.id}
+                  onClick={() => navigate(`/campaign/${campaign.id}`)}
+                  className="bg-fb-surface p-6 rounded-lg cursor-pointer hover:transform hover:scale-105 transition shadow-lg"
+                >
+                  {/* Album Art Container */}
+                  <div className="mb-4 relative">
+                    <div className="w-full h-40 bg-gradient-to-r from-fb-purple to-fb-pink rounded flex items-center justify-center">
+                      <span className="text-4xl">🎵</span>
+                    </div>
+                    
+                    {/* Status Badge - Positioned on top-right of image */}
+                    <div className="absolute top-2 right-2">
+                      <StatusBadge status={status} />
+                    </div>
+                  </div>
+
+                  {/* Campaign Title */}
+                  <h3 className="text-xl font-bold mb-2">{campaign.title}</h3>
+                  
+                  {/* Campaign Description */}
+                  <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+                    {campaign.description || 'No description'}
+                  </p>
+
+                  {/* Progress Bar Component */}
+                  <div className="mb-4">
+                    <ProgressBar 
+                      raised={campaign.amount_raised}
+                      target={campaign.target_amount}
+                      percentage={percentage}
+                    />
+                  </div>
+
+                  {/* Revenue Share Footer */}
+                  <div className="flex justify-between text-sm text-gray-400 pt-3 border-t border-gray-600">
+                    <span>{campaign.revenue_share_pct}% revenue share</span>
+                    <span className="text-fb-pink">View Details →</span>
                   </div>
                 </div>
-
-                <h3 className="text-xl font-bold mb-2">{campaign.title}</h3>
-                <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-                  {campaign.description || 'No description'}
-                </p>
-
-                <div className="mb-4">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span>₹{campaign.amount_raised.toLocaleString()}</span>
-                    <span className="text-gray-400">₹{campaign.target_amount.toLocaleString()}</span>
-                  </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2">
-                    <div
-                      className="bg-fb-green h-2 rounded-full"
-                      style={{
-                        width: `${(campaign.amount_raised / campaign.target_amount) * 100}%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="flex justify-between text-sm text-gray-400">
-                  <span>{campaign.revenue_share_pct}% revenue share</span>
-                  <span className="text-fb-pink">View Details</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

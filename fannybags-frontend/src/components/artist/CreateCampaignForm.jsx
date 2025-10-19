@@ -11,6 +11,8 @@ export default function CreateCampaignForm({ onSuccess }) {
     expected_streams_3m: 100000,
     expected_revenue_3m: 25000,
     sharing_term: '2 years',
+    start_date: '',
+    end_date: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -18,16 +20,46 @@ export default function CreateCampaignForm({ onSuccess }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: isNaN(value) ? value : parseFloat(value),
-    }));
+    
+    // For date fields, keep as string
+    if (name === 'start_date' || name === 'end_date') {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    } else {
+      // For number fields, convert to float
+      setFormData((prev) => ({
+        ...prev,
+        [name]: isNaN(value) ? value : parseFloat(value),
+      }));
+    }
+  };
+
+  // Validation function
+  const validateDates = () => {
+    if (formData.start_date && formData.end_date) {
+      const startDate = new Date(formData.start_date);
+      const endDate = new Date(formData.end_date);
+
+      if (endDate <= startDate) {
+        setError('End date must be after start date');
+        return false;
+      }
+    }
+    return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    // Validate dates before submitting
+    if (!validateDates()) {
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -42,6 +74,8 @@ export default function CreateCampaignForm({ onSuccess }) {
         expected_streams_3m: 100000,
         expected_revenue_3m: 25000,
         sharing_term: '2 years',
+        start_date: '',
+        end_date: '',
       });
       setTimeout(() => {
         onSuccess();
@@ -70,6 +104,7 @@ export default function CreateCampaignForm({ onSuccess }) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Row 1: Title and Target Amount */}
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Campaign Title *</label>
@@ -97,6 +132,7 @@ export default function CreateCampaignForm({ onSuccess }) {
           </div>
         </div>
 
+        {/* Description */}
         <div>
           <label className="block text-sm font-medium mb-2">Description</label>
           <textarea
@@ -109,6 +145,36 @@ export default function CreateCampaignForm({ onSuccess }) {
           ></textarea>
         </div>
 
+        {/* NEW: Start Date and End Date */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Campaign Start Date *</label>
+            <input
+              type="datetime-local"
+              name="start_date"
+              value={formData.start_date}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-fb-dark text-white border border-gray-600 rounded focus:outline-none focus:border-fb-pink"
+              required
+            />
+            <p className="text-xs text-gray-400 mt-1">When your campaign goes live</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2">Campaign End Date *</label>
+            <input
+              type="datetime-local"
+              name="end_date"
+              value={formData.end_date}
+              onChange={handleChange}
+              className="w-full px-4 py-2 bg-fb-dark text-white border border-gray-600 rounded focus:outline-none focus:border-fb-pink"
+              required
+            />
+            <p className="text-xs text-gray-400 mt-1">When your campaign closes</p>
+          </div>
+        </div>
+
+        {/* Row 2: Revenue Share and Partition Price */}
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Revenue Share (%) *</label>
@@ -137,6 +203,7 @@ export default function CreateCampaignForm({ onSuccess }) {
           </div>
         </div>
 
+        {/* Row 3: Expected Streams and Revenue */}
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Expected Streams (3m)</label>
@@ -161,6 +228,7 @@ export default function CreateCampaignForm({ onSuccess }) {
           </div>
         </div>
 
+        {/* Revenue Sharing Term */}
         <div>
           <label className="block text-sm font-medium mb-2">Revenue Sharing Term</label>
           <input
@@ -173,6 +241,7 @@ export default function CreateCampaignForm({ onSuccess }) {
           />
         </div>
 
+        {/* Submit Button */}
         <button
           type="submit"
           disabled={loading}

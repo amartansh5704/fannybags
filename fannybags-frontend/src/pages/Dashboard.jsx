@@ -10,6 +10,9 @@ import PayoutHistory from '../components/investor/PayoutHistory';
 import CreateCampaignForm from '../components/artist/CreateCampaignForm';
 import CampaignStats from '../components/artist/CampaignStats';
 import RevenueUpload from '../components/artist/RevenueUpload';
+import CampaignMetrics from '../components/artist/CampaignMetrics';
+import ProgressChart from '../components/artist/ProgressChart';
+import RevenueChart from '../components/artist/RevenueChart';
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuthStore();
@@ -30,28 +33,64 @@ export default function Dashboard() {
   }, [isAuthenticated, user, navigate]);
 
   useEffect(() => {
-    if (!isAuthenticated || user?.role !== 'investor') return;
-    const fetchData = async () => {
-      try {
-        const returnsData = await investorService.getExpectedReturns(user.id);
-        setHoldings(returnsData.holdings_breakdown || []);
-        setTotalExpected(returnsData.total_expected_return_3m || 0);
-        
-        const txData = await investorService.getTransactions(user.id);
-        setTransactions(txData || []);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchData();
-  }, [isAuthenticated, user?.id, user?.role]);
+  if (!isAuthenticated || user?.role !== 'investor') return;
+  const fetchData = async () => {
+    try {
+      console.log('Dashboard: Fetching data for user:', user.id, 'Type:', typeof user.id);
+      
+      const returnsData = await investorService.getExpectedReturns(user.id);
+      console.log('Returns data:', returnsData);
+      setHoldings(returnsData.holdings_breakdown || []);
+      setTotalExpected(returnsData.total_expected_return_3m || 0);
+      
+      const txData = await investorService.getTransactions(user.id);
+      console.log('Transactions data:', txData);
+      setTransactions(txData || []);
+      
+      // Calculate actual earnings from transactions
+      const actualEarnings = txData
+        .filter(t => t.type === 'revenue_distribution' && t.status === 'completed')
+        .reduce((sum, t) => sum + t.amount, 0);
+      console.log('Actual earnings calculated:', actualEarnings);
+      
+      console.log('Dashboard: Data fetched successfully');
+    } catch (err) {
+      console.error('Dashboard: Error fetching data:', err);
+      // Set empty arrays to prevent undefined errors
+      setHoldings([]);
+      setTotalExpected(0);
+      setTransactions([]);
+    }
+  };
+  fetchData();
+}, [isAuthenticated, user?.id, user?.role]);
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'artist') return;
     const loadCampaigns = async () => {
       try {
         const artistCampaigns = await campaignService.getMyArtistCampaigns();
-        setCampaigns(artistCampaigns);
+        
+        // Fetch actual revenue for each campaign
+        const campaignsWithRevenue = await Promise.all(
+          artistCampaigns.map(async (campaign) => {
+            try {
+              const revenueData = await campaignService.getCampaignActualRevenue(campaign.id);
+              return {
+                ...campaign,
+                actual_revenue: revenueData.actual_revenue
+              };
+            } catch (err) {
+              console.error(`Error fetching revenue for campaign ${campaign.id}:`, err);
+              return {
+                ...campaign,
+                actual_revenue: 0
+              };
+            }
+          })
+        );
+        
+        setCampaigns(campaignsWithRevenue);
       } catch (err) {
         console.error(err);
       }
@@ -62,7 +101,27 @@ export default function Dashboard() {
   const refreshCampaigns = async () => {
     try {
       const artistCampaigns = await campaignService.getMyArtistCampaigns();
-      setCampaigns(artistCampaigns);
+      
+      // Fetch actual revenue for each campaign
+      const campaignsWithRevenue = await Promise.all(
+        artistCampaigns.map(async (campaign) => {
+          try {
+            const revenueData = await campaignService.getCampaignActualRevenue(campaign.id);
+            return {
+              ...campaign,
+              actual_revenue: revenueData.actual_revenue
+            };
+          } catch (err) {
+            console.error(`Error fetching revenue for campaign ${campaign.id}:`, err);
+            return {
+              ...campaign,
+              actual_revenue: 0
+            };
+          }
+        })
+      );
+      
+      setCampaigns(campaignsWithRevenue);
     } catch (err) {
       console.error(err);
     }
@@ -99,10 +158,23 @@ export default function Dashboard() {
                 
                 <h3 className="text-xl font-bold mb-6 mt-10">Your Earnings</h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-                  {holdings.map((holding) => (
-                    <EarningsCard key={holding.holding_id} holding={holding} />
-                  ))}
-                </div>
+                  {holdings.map((holding) => {
+                    const campaignEarnings = transactions
+                    .filter(t => t.type === 'revenue_distribution' && t.status === 'completed')
+                    .filter(t => t.description && t.description.includes(holding.campaign_title))
+                    .reduce((sum, t) => sum + t.amount, 0);
+                    
+                    console.log(`Campaign "${holding.campaign_title}" earnings:`, campaignEarnings);
+                    return (
+                    
+                    <EarningsCard 
+                    key={holding.holding_id}
+                    holding={holding}
+                    actualEarnings={campaignEarnings}
+                    />
+                  );
+                  })}
+                  </div>
 
                 <h3 className="text-xl font-bold mb-6">Your Investments</h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
@@ -143,19 +215,38 @@ export default function Dashboard() {
                     </button>
                   </div>
                 ) : (
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {campaigns.map((campaign) => (
-                      <div key={campaign.id}>
-                        <CampaignStats campaign={campaign} />
-                        <RevenueUpload
-                          campaignId={campaign.id}
-                          campaignTitle={campaign.title}
-                          campaignStatus={campaign.funding_status}
-                          onStatusChange={refreshCampaigns}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  <>
+                    {/* Analytics Dashboard */}
+                    <div className="mb-8">
+                      <h3 className="text-xl font-bold mb-6">📊 Campaign Analytics Dashboard</h3>
+                      {campaigns.map((campaign) => (
+                        <div key={campaign.id} className="mb-8">
+                          <h4 className="text-lg font-semibold mb-4 text-fb-pink">{campaign.title}</h4>
+                          <div className="grid md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                            <CampaignMetrics campaign={campaign} />
+                            <ProgressChart campaign={campaign} />
+                            <RevenueChart campaign={campaign} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Existing Campaign Management */}
+                    <h3 className="text-xl font-bold mb-6">🎛️ Campaign Management</h3>
+                    <div className="grid md:grid-cols-2 gap-6">
+                      {campaigns.map((campaign) => (
+                        <div key={campaign.id}>
+                          <CampaignStats campaign={campaign} />
+                          <RevenueUpload
+                            campaignId={campaign.id}
+                            campaignTitle={campaign.title}
+                            campaignStatus={campaign.funding_status}
+                            onStatusChange={refreshCampaigns}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 )}
               </>
             )}

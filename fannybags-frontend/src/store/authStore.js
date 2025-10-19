@@ -52,7 +52,7 @@ export const useAuthStore = create((set) => ({
     const token = authService.getToken();
     const userId = authService.getUserId();
     const userRole = authService.getUserRole();
-    if (token) {
+    if (token && userId) {
       set({
         user: { id: userId, role: userRole },
         isAuthenticated: true,

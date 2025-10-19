@@ -1,6 +1,5 @@
-export default function EarningsCard({ holding }) {
-  const potentialEarnings = holding.expected_personal_return_3m || 0;
-  const actualEarnings = holding.actual_earnings || 0;
+export default function EarningsCard({ holding, actualEarnings = 0 }) {
+  const potentialEarnings = holding.your_expected_return_3m || 0;
   const pendingEarnings = potentialEarnings - actualEarnings;
 
   return (

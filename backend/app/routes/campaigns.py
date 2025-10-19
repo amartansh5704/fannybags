@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from app.models import Campaign, User, Partition
+from app.models import Campaign, User, Partition, Transaction
 from datetime import datetime
 
 bp = Blueprint('campaigns', __name__, url_prefix='/api/campaigns')
@@ -208,7 +208,7 @@ def distribute_revenue(campaign_id):
         print(f"DEBUG 403: campaign.artist_id={campaign.artist_id}, user_id={user_id}, types: {type(campaign.artist_id)}, {type(user_id)}")
         return jsonify({'error': 'Unauthorized - only artist can distribute'}), 403
     
-    from app.models import RevenueEvent, Distribution, InvestorHolding
+    from app.models import RevenueEvent, Distribution, InvestorHolding, Transaction
     
     unprocessed_revenue = RevenueEvent.query.filter_by(
         campaign_id=campaign_id,
@@ -246,23 +246,77 @@ def distribute_revenue(campaign_id):
         total_allocated_to_investors=investor_pool,
         platform_fee=platform_fee,
         distribution_data=distribution_data,
-        distributed=False
+        distributed=True  # Changed to True since we're creating transactions
     )
     
+    db.session.add(distribution)
+    
+    # Create transactions for each investor
+    for investor_id, data in distribution_data.items():
+        transaction = Transaction(
+            user_id=int(investor_id),
+            tx_type='revenue_distribution',
+            amount=data['share_amount'],
+            status='completed',
+            tx_reference=f'DIST_{campaign_id}_{investor_id}_{int(datetime.utcnow().timestamp())}',
+            description=f'Revenue share from {campaign.title}'
+        )
+        db.session.add(transaction)
+    
+    # Create transaction for artist
+    artist_share = total_revenue - investor_pool - platform_fee
+    artist_transaction = Transaction(
+        user_id=campaign.artist_id,
+        tx_type='revenue_distribution',
+        amount=artist_share,
+        status='completed',
+        tx_reference=f'DIST_{campaign_id}_ARTIST_{int(datetime.utcnow().timestamp())}',
+        description=f'Artist share from {campaign.title}'
+    )
+    db.session.add(artist_transaction)
+    
+    # Mark all revenue events as processed
     for revenue in unprocessed_revenue:
         revenue.processed = True
     
-    db.session.add(distribution)
     db.session.commit()
     
     return jsonify({
-        'message': 'Revenue distribution calculated successfully',
+        'message': 'Revenue distribution completed successfully',
         'distribution_id': distribution.id,
         'total_revenue': total_revenue,
         'platform_fee': platform_fee,
         'platform_fee_pct': platform_fee_pct * 100,
-        'artist_share': total_revenue - investor_pool - platform_fee,
+        'artist_share': artist_share,
         'investor_pool': investor_pool,
         'investor_pool_pct': campaign.revenue_share_pct,
         'distribution_breakdown': distribution_data
     }), 201
+
+@bp.route('/<int:campaign_id>/actual-revenue', methods=['GET'])
+@jwt_required()
+def get_campaign_actual_revenue(campaign_id):
+    user_id = int(get_jwt_identity())
+    campaign = Campaign.query.get(campaign_id)
+    
+    if not campaign:
+        return jsonify({'error': 'Campaign not found'}), 404
+    
+    if campaign.artist_id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    from app.models import RevenueEvent
+    from sqlalchemy import func
+    
+    # Get total actual revenue from all revenue events for this campaign
+    actual_revenue = db.session.query(
+        func.sum(RevenueEvent.amount)
+    ).filter(
+        RevenueEvent.campaign_id == campaign_id,
+        RevenueEvent.processed == True
+    ).scalar() or 0
+    
+    return jsonify({
+        'campaign_id': campaign_id,
+        'actual_revenue': float(actual_revenue)
+    }), 200

@@ -1,5 +1,5 @@
 export default function PayoutHistory({ transactions }) {
-  const payouts = transactions.filter(t => t.type === 'payout');
+  const payouts = transactions.filter(t => t.type === 'revenue_distribution');
 
   if (payouts.length === 0) {
     return (

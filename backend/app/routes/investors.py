@@ -61,6 +61,8 @@ def buy_partitions(campaign_id):
 @jwt_required()
 def get_user_holdings(user_id):
     current_user_id = get_jwt_identity()
+    # Convert both to int for comparison to avoid type mismatch
+    current_user_id = int(current_user_id)
     if current_user_id != user_id:
         return jsonify({'error': 'Unauthorized'}), 403
     holdings = InvestorHolding.query.filter_by(investor_id=user_id).all()
@@ -85,6 +87,8 @@ def get_user_holdings(user_id):
 @jwt_required()
 def get_user_transactions(user_id):
     current_user_id = get_jwt_identity()
+    # Convert both to int for comparison to avoid type mismatch
+    current_user_id = int(current_user_id)
     if current_user_id != user_id:
         return jsonify({'error': 'Unauthorized'}), 403
     transactions = Transaction.query.filter_by(user_id=user_id).order_by(Transaction.created_at.desc()).all()
@@ -169,4 +173,38 @@ def get_expected_returns(user_id):
         'total_expected_return_3m': total_expected,
         'number_of_campaigns': len(holdings),
         'holdings_breakdown': breakdown
+    }), 200
+
+@bp.route('/investor/earnings/<int:investor_id>', methods=['GET'])
+@jwt_required()
+def get_investor_earnings(investor_id):
+    current_user_id = int(get_jwt_identity())
+    investor_id = int(investor_id)
+    
+    if current_user_id != investor_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    from sqlalchemy import func
+    
+    # Get completed investments (money already earned)
+    actual_earnings = db.session.query(
+        func.sum(Transaction.amount)
+    ).filter(
+        Transaction.user_id == investor_id,
+        Transaction.tx_type == 'revenue_distribution',
+        Transaction.status == 'completed'
+    ).scalar() or 0
+    
+    # Get pending investments (money waiting)
+    pending_earnings = db.session.query(
+        func.sum(Transaction.amount)
+    ).filter(
+        Transaction.user_id == investor_id,
+        Transaction.tx_type == 'revenue_distribution',
+        Transaction.status == 'pending'
+    ).scalar() or 0
+    
+    return jsonify({
+        'actual_earnings': float(actual_earnings),
+        'pending_earnings': float(pending_earnings)
     }), 200

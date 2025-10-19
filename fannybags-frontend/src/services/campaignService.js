@@ -49,4 +49,10 @@ distributeRevenue: async (campaignId) => {
   return response.data;
 },
 
+// Add this function to the existing campaignService object
+getCampaignActualRevenue: async (campaignId) => {
+  const response = await api.get(`/campaigns/${campaignId}/actual-revenue`);
+  return response.data;
+},
+
 };

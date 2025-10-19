@@ -2,23 +2,28 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { campaignService } from '../services/campaignService';
 import { useAuthStore } from '../store/authStore';
+import InvestmentForm from '../components/campaigns/InvestmentForm';
 
 export default function CampaignDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuthStore();
   const [campaign, setCampaign] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [partitionsCount, setPartitionsCount] = useState(1);
-  const [buying, setBuying] = useState(false);
+  const [showInvest, setShowInvest] = useState(false);
 
   useEffect(() => {
     const fetchCampaign = async () => {
       try {
         setLoading(true);
-        const data = await campaignService.getCampaignById(id);
-        setCampaign(data);
+        const [campaignData, analyticsData] = await Promise.all([
+          campaignService.getCampaignById(id),
+          campaignService.getAnalytics(id).catch(() => null) // Analytics might not exist for all campaigns
+        ]);
+        setCampaign(campaignData);
+        setAnalytics(analyticsData);
       } catch (err) {
         setError('Failed to load campaign');
         console.error(err);
@@ -41,15 +46,24 @@ export default function CampaignDetail() {
       return;
     }
 
-    setBuying(true);
+    setShowInvest(true);
+  };
+
+  const handleInvestmentSuccess = async () => {
+    // Refresh campaign data after successful investment
     try {
-      await campaignService.buyCampaign(id, partitionsCount);
-      alert('Purchase successful!');
-      navigate('/dashboard');
+      const [campaignData, analyticsData] = await Promise.all([
+        campaignService.getCampaignById(id),
+        campaignService.getAnalytics(id).catch(() => null)
+      ]);
+      setCampaign(campaignData);
+      setAnalytics(analyticsData);
+      setShowInvest(false);
+      alert('Investment successful!');
     } catch (err) {
-      alert(err.response?.data?.error || 'Purchase failed');
-    } finally {
-      setBuying(false);
+      console.error('Error refreshing campaign data:', err);
+      setShowInvest(false);
+      alert('Investment successful, but failed to refresh data');
     }
   };
 
@@ -77,8 +91,43 @@ export default function CampaignDetail() {
     );
   }
 
-  const totalCost = partitionsCount * campaign.partition_price;
-  const yourOwnership = (partitionsCount / campaign.total_partitions) * campaign.revenue_share_pct;
+  // Calculate campaign status and availability
+  const now = new Date();
+  const startDate = campaign.start_date ? new Date(campaign.start_date) : null;
+  const endDate = campaign.end_date ? new Date(campaign.end_date) : null;
+  
+  const isUpcoming = startDate && startDate > now;
+  const isEnded = endDate && endDate < now;
+  const isLiveWindow = !isUpcoming && !isEnded;
+  const isPublishedLive = campaign.funding_status === 'live';
+  const isActive = isPublishedLive && isLiveWindow;
+
+  // Calculate available partitions
+  const partitionsSold = analytics?.partitions_sold || 0;
+  const totalPartitions = campaign.total_partitions || 0;
+  const availablePartitions = Math.max(0, totalPartitions - partitionsSold);
+  const minPartitions = campaign.min_partitions_per_user || 1;
+
+  // Determine button text and state
+  const getButtonText = () => {
+    if (!isAuthenticated) return 'Login to Invest';
+    if (user?.role === 'artist') return 'Artists Cannot Invest';
+    if (!isActive) {
+      if (isUpcoming) return 'Starts Soon';
+      if (isEnded) return 'Ended';
+      return 'Not Available';
+    }
+    if (availablePartitions <= 0) return 'Sold Out';
+    return 'Invest Now';
+  };
+
+  const isButtonDisabled = () => {
+    if (!isAuthenticated) return false; // Allow login redirect
+    if (user?.role === 'artist') return true;
+    if (!isActive) return true;
+    if (availablePartitions <= 0) return true;
+    return false;
+  };
 
   return (
     <div className="min-h-screen bg-fb-dark text-white pt-20">
@@ -99,6 +148,16 @@ export default function CampaignDetail() {
 
           <h1 className="text-4xl font-bold mb-2">{campaign.title}</h1>
           <p className="text-gray-400 mb-6">{campaign.description}</p>
+
+          {/* Artist Profile Link */}
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => navigate(`/artist/${campaign.artist_id}`)}
+              className="text-fb-pink hover:text-white font-semibold flex items-center gap-2"
+            >
+              👤 View Artist Profile
+            </button>
+          </div>
 
           <div className="grid md:grid-cols-2 gap-6 mb-10">
             <div className="bg-fb-surface p-6 rounded-lg">
@@ -131,8 +190,13 @@ export default function CampaignDetail() {
               <p className="mb-2">
                 Total Partitions: <span className="font-bold">{campaign.total_partitions}</span>
               </p>
+              <p className="mb-2">
+                Available: <span className="font-bold text-fb-green">{availablePartitions}</span>
+              </p>
               <p className="text-sm text-gray-400 mt-3">
-                Status: <span className="capitalize text-fb-pink">{campaign.funding_status}</span>
+                Status: <span className="capitalize text-fb-pink">
+                  {isUpcoming ? 'Upcoming' : isEnded ? 'Ended' : campaign.funding_status}
+                </span>
               </p>
             </div>
           </div>
@@ -146,77 +210,48 @@ export default function CampaignDetail() {
           )}
         </div>
 
-        {/* Buy Section */}
-        {campaign.funding_status === 'live' && (
-          <div className="bg-fb-surface p-8 rounded-lg">
-            <h2 className="text-2xl font-bold mb-6">Invest in This Campaign</h2>
+        {/* Investment Section */}
+        <div className="bg-fb-surface p-8 rounded-lg">
+          <h2 className="text-2xl font-bold mb-6">Invest in This Campaign</h2>
+          
+          <div className="bg-fb-dark p-4 rounded mb-6">
+            <h4 className="font-semibold mb-2 text-fb-green">Investment Details</h4>
+            <p className="text-sm mb-2">Minimum partitions: {minPartitions}</p>
+            <p className="text-sm mb-2">Available partitions: {availablePartitions}</p>
+            <p className="text-sm">Price per partition: ₹{campaign.partition_price}</p>
+          </div>
 
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-2">Number of Partitions</label>
-              <input
-                type="number"
-                min="1"
-                max={campaign.total_partitions}
-                value={partitionsCount}
-                onChange={(e) => setPartitionsCount(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-full px-4 py-2 bg-fb-dark text-white border border-gray-600 rounded focus:outline-none focus:border-fb-pink"
+          {isAuthenticated ? (
+            <button
+              onClick={handleBuy}
+              disabled={isButtonDisabled()}
+              className="w-full py-3 bg-fb-pink text-white rounded font-semibold hover:opacity-90 transition disabled:opacity-50"
+            >
+              {getButtonText()}
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate('/login')}
+              className="w-full py-3 bg-fb-pink text-white rounded font-semibold hover:opacity-90 transition"
+            >
+              Login to Invest
+            </button>
+          )}
+        </div>
+
+        {/* Investment Modal */}
+        {showInvest && campaign && (
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center px-4">
+            <div className="max-w-md w-full">
+              <InvestmentForm
+                campaignId={Number(id)}
+                partitionPrice={campaign.partition_price}
+                minPartitions={minPartitions}
+                availablePartitions={availablePartitions}
+                onClose={() => setShowInvest(false)}
+                onSuccess={handleInvestmentSuccess}
               />
             </div>
-
-            <div className="bg-fb-dark p-4 rounded mb-6">
-              <div className="flex justify-between mb-2">
-                <span>Cost per partition:</span>
-                <span>₹{campaign.partition_price}</span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span>Number of partitions:</span>
-                <span>{partitionsCount}</span>
-              </div>
-              <div className="border-t border-gray-600 pt-2 flex justify-between font-bold">
-                <span>Total Cost:</span>
-                <span className="text-fb-pink">₹{totalCost.toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div className="bg-fb-dark p-4 rounded mb-6 border border-fb-green">
-              <h4 className="font-semibold mb-2 text-fb-green">Your Investment Returns</h4>
-              <p className="text-sm mb-2">If you invest ₹{totalCost.toLocaleString()}:</p>
-              <p className="text-sm">
-                Your Ownership: <span className="font-bold text-fb-pink">{yourOwnership.toFixed(2)}%</span> of investor pool
-              </p>
-              {campaign.expected_revenue_3m && (
-                <p className="text-sm mt-2">
-                  Expected Return (3m): <span className="font-bold text-fb-green">
-                    ₹{((yourOwnership / 100) * campaign.expected_revenue_3m).toFixed(0)}
-                  </span>
-                </p>
-              )}
-            </div>
-
-            {isAuthenticated ? (
-              <button
-                onClick={handleBuy}
-                disabled={buying || campaign.funding_status !== 'live'}
-                className="w-full py-3 bg-fb-pink text-white rounded font-semibold hover:opacity-90 transition disabled:opacity-50"
-              >
-                {buying ? 'Processing...' : `Buy ${partitionsCount} Partition${partitionsCount > 1 ? 's' : ''}`}
-              </button>
-            ) : (
-              <button
-                onClick={() => navigate('/login')}
-                className="w-full py-3 bg-fb-pink text-white rounded font-semibold hover:opacity-90 transition"
-              >
-                Login to Invest
-              </button>
-            )}
-          </div>
-        )}
-
-        {campaign.funding_status !== 'live' && (
-          <div className="bg-fb-surface p-8 rounded-lg text-center">
-            <p className="text-gray-400">
-              This campaign is <span className="capitalize text-fb-pink font-bold">{campaign.funding_status}</span> and not accepting investments right now.
-            </p>
           </div>
         )}
       </div>

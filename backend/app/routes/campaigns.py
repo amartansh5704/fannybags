@@ -146,18 +146,30 @@ def publish_campaign(campaign_id):
         'campaign_id': campaign.id
     }), 200
 
+from flask_jwt_extended import jwt_required, get_jwt_identity
+
 @bp.route('/<int:campaign_id>/analytics', methods=['GET'])
-@jwt_required()
+@jwt_required(optional=True)  # allow public access; token optional
 def get_campaign_analytics(campaign_id):
-    user_id = get_jwt_identity()
+    user_id = get_jwt_identity()  # may be None
     campaign = Campaign.query.get(campaign_id)
     if not campaign:
         return jsonify({'error': 'Campaign not found'}), 404
-    if campaign.artist_id != user_id:
-        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Determine if caller is the artist owner (when logged in)
+    is_owner = False
+    if user_id is not None:
+        try:
+            is_owner = int(user_id) == campaign.artist_id
+        except (ValueError, TypeError):
+            is_owner = False
+
     partitions = Partition.query.filter_by(campaign_id=campaign_id, status='confirmed').all()
     total_partitions_sold = sum(p.partitions_bought for p in partitions)
     num_investors = len(set(p.buyer_id for p in partitions))
+
+    # Return public, non-sensitive analytics for everyone.
+    # If you later add sensitive fields, only include them when is_owner is True.
     return jsonify({
         'campaign_id': campaign.id,
         'title': campaign.title,
@@ -343,3 +355,27 @@ def get_campaign_actual_revenue(campaign_id):
         'campaign_id': campaign_id,
         'actual_revenue': float(actual_revenue)
     }), 200
+
+@bp.route('/artist/<int:artist_id>/campaigns', methods=['GET'])
+@jwt_required(optional=True)  # Allow public access
+def get_artist_campaigns(artist_id):
+    """Get all campaigns for a specific artist (public endpoint)"""
+    campaigns = Campaign.query.filter_by(artist_id=artist_id).all()
+    
+    return jsonify([{
+        'id': c.id,
+        'title': c.title,
+        'description': c.description,
+        'target_amount': c.target_amount,
+        'amount_raised': c.amount_raised,
+        'revenue_share_pct': c.revenue_share_pct,
+        'partition_price': c.partition_price,
+        'total_partitions': c.total_partitions,
+        'funding_status': c.funding_status,
+        'artist_id': c.artist_id,
+        'expected_streams_3m': c.expected_streams_3m,
+        'expected_revenue_3m': c.expected_revenue_3m,
+        'start_date': c.start_date.isoformat() if c.start_date else None,
+        'end_date': c.end_date.isoformat() if c.end_date else None,
+        'created_at': c.created_at.isoformat()
+    } for c in campaigns]), 200

@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { campaignService } from '../services/campaignService';
 import ProgressBar from '../components/common/ProgressBar';
 import StatusBadge from '../components/common/StatusBadge';
+import FilterPanel from '../components/common/FilterPanel';
 
 export default function CampaignBrowse() {
   const [campaigns, setCampaigns] = useState([]);
+  const [filteredCampaigns, setFilteredCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -34,12 +36,83 @@ export default function CampaignBrowse() {
     return 'active';
   };
 
+  // Function to apply filters
+  const applyFilters = (campaigns, filters) => {
+    let filtered = [...campaigns];
+
+    // Search filter
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      filtered = filtered.filter(campaign =>
+        campaign.title.toLowerCase().includes(searchTerm) ||
+        campaign.description?.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Genre filter (we'll add genre to campaigns later)
+    if (filters.genre) {
+      // For now, we'll skip genre filtering since we don't have genre data
+      // filtered = filtered.filter(campaign => campaign.genre === filters.genre);
+    }
+
+    // Price range filter
+    if (filters.priceRange !== 'all') {
+      filtered = filtered.filter(campaign => {
+        const price = campaign.partition_price;
+        switch (filters.priceRange) {
+          case '1k-10k':
+            return price >= 1000 && price <= 10000;
+          case '10k-50k':
+            return price >= 10000 && price <= 50000;
+          case '50k+':
+            return price >= 50000;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Sort filter
+    switch (filters.sort) {
+      case 'newest':
+        filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        break;
+      case 'most_funded':
+        filtered.sort((a, b) => b.amount_raised - a.amount_raised);
+        break;
+      case 'ending_soon':
+        filtered.sort((a, b) => {
+          const aEnd = a.end_date ? new Date(a.end_date) : new Date('2099-12-31');
+          const bEnd = b.end_date ? new Date(b.end_date) : new Date('2099-12-31');
+          return aEnd - bEnd;
+        });
+        break;
+      case 'lowest_price':
+        filtered.sort((a, b) => a.partition_price - b.partition_price);
+        break;
+      case 'highest_price':
+        filtered.sort((a, b) => b.partition_price - a.partition_price);
+        break;
+      default:
+        break;
+    }
+
+    return filtered;
+  };
+
+  // Handle filter changes
+  const handleFiltersChange = (filters) => {
+    const filtered = applyFilters(campaigns, filters);
+    setFilteredCampaigns(filtered);
+  };
+
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
         setLoading(true);
         const data = await campaignService.getAllCampaigns();
         setCampaigns(data);
+        setFilteredCampaigns(data);
       } catch (err) {
         setError('Failed to load campaigns');
         console.error(err);
@@ -74,19 +147,29 @@ export default function CampaignBrowse() {
           Explore <span style={{ color: '#FF48B9' }}>Campaigns</span>
         </h1>
 
-        {campaigns.length === 0 ? (
+        {/* Filter Panel */}
+        <FilterPanel onFiltersChange={handleFiltersChange} />
+
+        {/* Results Count */}
+        <div className="mb-6">
+          <p className="text-gray-400">
+            Showing {filteredCampaigns.length} of {campaigns.length} campaigns
+          </p>
+        </div>
+
+        {filteredCampaigns.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-400 mb-6">No campaigns available yet</p>
+            <p className="text-gray-400 mb-6">No campaigns match your filters</p>
             <button
-              onClick={() => navigate('/')}
+              onClick={() => window.location.reload()}
               className="px-6 py-2 bg-fb-pink text-white rounded hover:opacity-90 transition"
             >
-              Back to Home
+              Clear Filters
             </button>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {campaigns.map((campaign) => {
+            {filteredCampaigns.map((campaign) => {
               const percentage = (campaign.amount_raised / campaign.target_amount) * 100;
               const status = getCampaignStatus(campaign);
 
@@ -128,7 +211,18 @@ export default function CampaignBrowse() {
                   {/* Revenue Share Footer */}
                   <div className="flex justify-between text-sm text-gray-400 pt-3 border-t border-gray-600">
                     <span>{campaign.revenue_share_pct}% revenue share</span>
-                    <span className="text-fb-pink">View Details →</span>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/artist/${campaign.artist_id}`);
+                        }}
+                        className="text-fb-pink hover:text-white text-sm font-semibold"
+                      >
+                        View Artist →
+                      </button>
+                      <span className="text-fb-pink">View Details →</span>
+                    </div>
                   </div>
                 </div>
               );

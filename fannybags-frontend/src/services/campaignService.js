@@ -55,4 +55,10 @@ getCampaignActualRevenue: async (campaignId) => {
   return response.data;
 },
 
+// Add this function to the existing campaignService object
+getArtistCampaigns: async (artistId) => {
+  const response = await api.get(`/campaigns/artist/${artistId}/campaigns`);
+  return response.data;
+},
+
 };

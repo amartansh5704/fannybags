@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import CampaignBrowse from './pages/CampaignBrowse';
 import CampaignDetail from './pages/CampaignDetail';
 import ArtistProfile from './pages/ArtistProfile';
+import WalletDashboard from './components/investor/WalletDashboard';  // NEW LINE
 
 function App() {
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
@@ -28,7 +29,8 @@ function App() {
         <Route path="/campaigns" element={<CampaignBrowse />} />
         <Route path="/campaign/:id" element={<CampaignDetail />} />
         <Route path="/artist/:artistId" element={<ArtistProfile />} />
-        </Routes>
+        <Route path="/wallet" element={<WalletDashboard />} />  {/* NEW LINE */}
+      </Routes>
     </BrowserRouter>
   );
 }

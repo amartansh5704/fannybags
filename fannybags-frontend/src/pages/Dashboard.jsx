@@ -19,10 +19,14 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [role, setRole] = useState('');
   const [holdings, setHoldings] = useState([]);
-  const [totalExpected, setTotalExpected] = useState(0);
+  // 🔥 REMOVED: totalExpected (no longer needed)
   const [campaigns, setCampaigns] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  
+  // 🔥 NEW: Portfolio and wallet data from complete endpoint
+  const [portfolioData, setPortfolioData] = useState(null);
+  const [walletData, setWalletData] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -32,38 +36,65 @@ export default function Dashboard() {
     setRole(user?.role || '');
   }, [isAuthenticated, user, navigate]);
 
+  // 🔥 UPDATED: Fetch complete portfolio data in one call
   useEffect(() => {
-  if (!isAuthenticated || user?.role !== 'investor') return;
-  const fetchData = async () => {
-    try {
-      console.log('Dashboard: Fetching data for user:', user.id, 'Type:', typeof user.id);
-      
-      const returnsData = await investorService.getExpectedReturns(user.id);
-      console.log('Returns data:', returnsData);
-      setHoldings(returnsData.holdings_breakdown || []);
-      setTotalExpected(returnsData.total_expected_return_3m || 0);
-      
-      const txData = await investorService.getTransactions(user.id);
-      console.log('Transactions data:', txData);
-      setTransactions(txData || []);
-      
-      // Calculate actual earnings from transactions
-      const actualEarnings = txData
-        .filter(t => t.type === 'revenue_distribution' && t.status === 'completed')
-        .reduce((sum, t) => sum + t.amount, 0);
-      console.log('Actual earnings calculated:', actualEarnings);
-      
-      console.log('Dashboard: Data fetched successfully');
-    } catch (err) {
-      console.error('Dashboard: Error fetching data:', err);
-      // Set empty arrays to prevent undefined errors
-      setHoldings([]);
-      setTotalExpected(0);
-      setTransactions([]);
-    }
-  };
-  fetchData();
-}, [isAuthenticated, user?.id, user?.role]);
+    if (!isAuthenticated || user?.role !== 'investor') return;
+    
+    const fetchData = async () => {
+      try {
+        console.log('Dashboard: Fetching complete portfolio for user:', user.id);
+        
+        // Call the complete portfolio endpoint
+        const portfolioResponse = await investorService.getPortfolio(user.id);
+        console.log('Complete portfolio response:', portfolioResponse);
+        
+        // Extract and store wallet data
+        setWalletData(portfolioResponse.wallet || {
+          balance: 0,
+          total_deposited: 0,
+          total_invested: 0,
+          total_earnings: 0
+        });
+        
+        // Extract and store portfolio summary data
+        setPortfolioData(portfolioResponse.portfolio || {
+          total_invested: 0,
+          total_earnings: 0,
+          overall_roi: 0,
+          number_of_campaigns: 0,
+          expected_returns_3m: 0
+        });
+        
+        // Extract holdings (with more details from portfolio endpoint)
+        setHoldings(portfolioResponse.holdings || []);
+        
+        // Extract transactions
+        setTransactions(portfolioResponse.recent_transactions || []);
+        
+        console.log('Dashboard: All portfolio data loaded successfully');
+      } catch (err) {
+        console.error('Dashboard: Error fetching portfolio:', err);
+        // Set safe defaults to prevent crashes
+        setWalletData({
+          balance: 0,
+          total_deposited: 0,
+          total_invested: 0,
+          total_earnings: 0
+        });
+        setPortfolioData({
+          total_invested: 0,
+          total_earnings: 0,
+          overall_roi: 0,
+          number_of_campaigns: 0,
+          expected_returns_3m: 0
+        });
+        setHoldings([]);
+        setTransactions([]);
+      }
+    };
+    
+    fetchData();
+  }, [isAuthenticated, user?.id, user?.role]);
 
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'artist') return;
@@ -154,27 +185,29 @@ export default function Dashboard() {
               </div>
             ) : (
               <>
-                <PortfolioSummary holdings={holdings} totalExpected={totalExpected} />
+                {/* 🔥 UPDATED: Pass portfolio and wallet props */}
+                <PortfolioSummary portfolio={portfolioData} wallet={walletData} />
                 
                 <h3 className="text-xl font-bold mb-6 mt-10">Your Earnings</h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
                   {holdings.map((holding) => {
+                    // Calculate earnings from transactions for this specific campaign
                     const campaignEarnings = transactions
-                    .filter(t => t.type === 'revenue_distribution' && t.status === 'completed')
-                    .filter(t => t.description && t.description.includes(holding.campaign_title))
-                    .reduce((sum, t) => sum + t.amount, 0);
+                      .filter(t => t.transaction_type === 'revenue_share' || t.transaction_type === 'earning')
+                      .filter(t => t.description && t.description.includes(holding.campaign_title))
+                      .reduce((sum, t) => sum + t.amount, 0);
                     
                     console.log(`Campaign "${holding.campaign_title}" earnings:`, campaignEarnings);
-                    return (
                     
-                    <EarningsCard 
-                    key={holding.holding_id}
-                    holding={holding}
-                    actualEarnings={campaignEarnings}
-                    />
-                  );
+                    return (
+                      <EarningsCard 
+                        key={holding.holding_id}
+                        holding={holding}
+                        actualEarnings={holding.actual_earnings || campaignEarnings}
+                      />
+                    );
                   })}
-                  </div>
+                </div>
 
                 <h3 className="text-xl font-bold mb-6">Your Investments</h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">

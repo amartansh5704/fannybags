@@ -208,3 +208,109 @@ def get_investor_earnings(investor_id):
         'actual_earnings': float(actual_earnings),
         'pending_earnings': float(pending_earnings)
     }), 200
+
+@bp.route('/investor/portfolio/<int:investor_id>', methods=['GET'])
+@jwt_required()
+def get_investor_portfolio(investor_id):
+    """Get complete portfolio with wallet, investments, and ROI"""
+    current_user_id = int(get_jwt_identity())
+    investor_id = int(investor_id)
+    
+    if current_user_id != investor_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    from app.models import Wallet, WalletTransaction, InvestorHolding
+    from sqlalchemy import func
+    
+    # Get wallet data
+    wallet = Wallet.query.filter_by(user_id=investor_id).first()
+    wallet_balance = wallet.balance if wallet else 0
+    total_deposited = wallet.total_deposited if wallet else 0
+    total_invested = wallet.total_invested if wallet else 0
+    total_earnings = wallet.total_earnings if wallet else 0
+    
+    # Get holdings with campaign details
+    holdings = InvestorHolding.query.filter_by(investor_id=investor_id).all()
+    
+    holdings_detail = []
+    total_expected_returns = 0
+    
+    for holding in holdings:
+        campaign = Campaign.query.get(holding.campaign_id)
+        artist = User.query.get(campaign.artist_id)
+        
+        # Calculate investment amount for this campaign
+        partitions_invested = Partition.query.filter_by(
+            campaign_id=holding.campaign_id,
+            buyer_id=investor_id
+        ).all()
+        investment_amount = sum(p.amount_paid for p in partitions_invested)
+        
+        # Calculate actual earnings from this campaign
+        campaign_earnings = db.session.query(
+            func.sum(Transaction.amount)
+        ).filter(
+            Transaction.user_id == investor_id,
+            Transaction.tx_type == 'revenue_distribution',
+            Transaction.status == 'completed',
+            Transaction.description.contains(campaign.title)
+        ).scalar() or 0
+        
+        # Calculate expected return
+        if campaign.expected_revenue_3m:
+            investor_ownership_pct = (holding.partitions_owned / campaign.total_partitions) * 100
+            investor_share_pct = campaign.revenue_share_pct
+            expected_return = (investor_ownership_pct / 100) * (investor_share_pct / 100) * campaign.expected_revenue_3m
+        else:
+            expected_return = 0
+        
+        total_expected_returns += expected_return
+        
+        # Calculate ROI
+        roi_percentage = ((campaign_earnings / investment_amount) * 100) if investment_amount > 0 else 0
+        
+        holdings_detail.append({
+            'holding_id': holding.id,
+            'campaign_id': campaign.id,
+            'campaign_title': campaign.title,
+            'artist_name': artist.name if artist else 'Unknown',
+            'partitions_owned': holding.partitions_owned,
+            'investment_amount': investment_amount,
+            'actual_earnings': float(campaign_earnings),
+            'expected_return_3m': expected_return,
+            'roi_percentage': roi_percentage,
+            'campaign_status': campaign.funding_status,
+            'date_invested': holding.created_at.isoformat()
+        })
+    
+    # Calculate overall ROI
+    overall_roi = ((total_earnings / total_invested) * 100) if total_invested > 0 else 0
+    
+    # Get recent wallet transactions
+    recent_transactions = []
+    if wallet:
+        wallet_txs = WalletTransaction.query.filter_by(
+            wallet_id=wallet.id
+        ).order_by(WalletTransaction.created_at.desc()).limit(10).all()
+        recent_transactions = [tx.to_dict() for tx in wallet_txs]
+    
+    return jsonify({
+        'investor_id': investor_id,
+        'wallet': {
+            'balance': wallet_balance,
+            'total_deposited': total_deposited,
+            'total_invested': total_invested,
+            'total_earnings': total_earnings
+        },
+        'portfolio': {
+            'total_invested': total_invested,
+            'total_earnings': total_earnings,
+            'current_value': total_invested + total_earnings,
+            'overall_roi': overall_roi,
+            'number_of_campaigns': len(holdings),
+            'expected_returns_3m': total_expected_returns
+        },
+        'holdings': holdings_detail,
+        'recent_transactions': recent_transactions
+    }), 200
+

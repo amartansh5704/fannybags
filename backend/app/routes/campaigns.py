@@ -286,8 +286,11 @@ def distribute_revenue(campaign_id):
     
     db.session.add(distribution)
     
-    # Create transactions for each investor
+    # Create transactions for each investor AND update their wallet
+    from app.models import Wallet, WalletTransaction
+    
     for investor_id, data in distribution_data.items():
+        # Create old transaction record (for backwards compatibility)
         transaction = Transaction(
             user_id=int(investor_id),
             tx_type='revenue_distribution',
@@ -297,6 +300,32 @@ def distribute_revenue(campaign_id):
             description=f'Revenue share from {campaign.title}'
         )
         db.session.add(transaction)
+        
+        # Update investor wallet balance and earnings
+        wallet = Wallet.query.filter_by(user_id=int(investor_id)).first()
+        if not wallet:
+            wallet = Wallet(user_id=int(investor_id))
+            db.session.add(wallet)
+            db.session.flush()  # Get wallet ID
+        
+        balance_before = wallet.balance
+        wallet.balance += data['share_amount']
+        wallet.total_earnings += data['share_amount']
+        wallet.updated_at = datetime.utcnow()
+        
+        # Create wallet transaction record
+        wallet_transaction = WalletTransaction(
+            wallet_id=wallet.id,
+            transaction_type='payout',
+            amount=data['share_amount'],
+            balance_before=balance_before,
+            balance_after=wallet.balance,
+            description=f'Revenue share from {campaign.title}',
+            reference_id=str(campaign_id),
+            reference_type='revenue',
+            status='completed'
+        )
+        db.session.add(wallet_transaction)
     
     # Create transaction for artist
     artist_share = total_revenue - investor_pool - platform_fee

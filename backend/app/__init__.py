@@ -31,7 +31,8 @@ def create_app():
     
     # Register blueprints (routes)
     with app.app_context():
-        from app.routes import auth, campaigns, investors
+        from app.routes import auth, campaigns, investors, wallet
+        app.register_blueprint(wallet.bp)
         app.register_blueprint(auth.bp)
         app.register_blueprint(campaigns.bp)
         app.register_blueprint(investors.bp)

@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 export default function HoldingsCard({ holding }) {
   const navigate = useNavigate();
 
-  const expectedReturn = holding.expected_personal_return_3m || 0;
-  const ownershipPct = holding.your_ownership_pct || holding.ownership_pct || 0;
+  const investmentAmount = holding.investment_amount || 0;
+  const expectedReturn = holding.expected_return_3m || 0;
 
   return (
     <div
@@ -17,34 +17,31 @@ export default function HoldingsCard({ holding }) {
         </div>
       </div>
 
-      <h3 className="text-lg font-bold mb-1">{holding.campaign_title}</h3>
+      <h3 className="text-lg font-bold mb-1 truncate">{holding.campaign_title}</h3>
       <p className="text-sm text-gray-400 mb-4">by {holding.artist_name}</p>
 
       <div className="bg-fb-dark p-3 rounded mb-4">
         <div className="flex justify-between text-sm mb-2">
-          <span className="text-gray-400">Partitions Owned:</span>
-          <span className="font-bold">{holding.partitions_owned || 0}</span>
+          <span className="text-gray-400">Investment:</span>
+          <span className="font-bold text-white">₹{investmentAmount.toLocaleString()}</span>
         </div>
         <div className="flex justify-between text-sm mb-2">
-          <span className="text-gray-400">Your Ownership:</span>
-          <span className="font-bold text-fb-pink">{(ownershipPct || 0).toFixed(2)}%</span>
+          <span className="text-gray-400">Partitions:</span>
+          <span className="font-bold">{holding.partitions_owned || 0}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-gray-400">Campaign Share:</span>
-          <span className="font-bold text-fb-green">{holding.revenue_share_pct || 0}%</span>
+          <span className="text-gray-400">Status:</span>
+          <span className="capitalize text-fb-pink font-bold">{holding.campaign_status || 'N/A'}</span>
         </div>
       </div>
 
       <div className="bg-fb-dark p-3 rounded">
-        <p className="text-xs text-gray-400 mb-1">Expected Return (3 months)</p>
-        <p className="text-xl font-bold text-fb-green">₹{(expectedReturn || 0).toFixed(0)}</p>
-        <p className="text-xs text-gray-400 mt-1">
-          Campaign expects: ₹{(holding.expected_campaign_revenue_3m || 0).toLocaleString()}
-        </p>
+        <p className="text-xs text-gray-400 mb-1">Expected Return (3m)</p>
+        <p className="text-xl font-bold text-fb-green">₹{expectedReturn.toLocaleString()}</p>
       </div>
 
       <p className="text-xs text-gray-400 mt-4">
-        Status: <span className="capitalize text-fb-pink">{holding.campaign_status || 'N/A'}</span>
+        Invested on {new Date(holding.date_invested).toLocaleDateString()}
       </p>
     </div>
   );

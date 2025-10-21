@@ -2,7 +2,7 @@ import { useAuthStore } from '../../store/authStore';
 import { useNavigate } from 'react-router-dom';
 
 export default function Navbar() {
-  const { logout, isAuthenticated } = useAuthStore();
+  const { logout, isAuthenticated, user } = useAuthStore();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -34,6 +34,15 @@ export default function Navbar() {
                 >
                   Dashboard
                 </button>
+                {/* NEW: Show Wallet link only for investors */}
+                {user?.role === 'investor' && (
+                  <button
+                    onClick={() => navigate('/wallet')}
+                    className="text-gray-300 hover:text-white transition flex items-center gap-1"
+                  >
+                    💰 Wallet
+                  </button>
+                )}
                 <button
                   onClick={handleLogout}
                   className="px-4 py-2 bg-fb-pink text-white rounded hover:opacity-90 transition"

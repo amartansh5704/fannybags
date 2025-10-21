@@ -141,3 +141,57 @@ class Contract(db.Model):
     
     def __repr__(self):
         return f'<Contract {self.id}>'
+    
+class Wallet(db.Model):
+        __tablename__ = 'wallets'
+        id = db.Column(db.Integer, primary_key=True)
+        user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+        balance = db.Column(db.Float, default=0.0, nullable=False)
+        total_deposited = db.Column(db.Float, default=0.0, nullable=False)
+        total_withdrawn = db.Column(db.Float, default=0.0, nullable=False)
+        total_invested = db.Column(db.Float, default=0.0, nullable=False)
+        total_earnings = db.Column(db.Float, default=0.0, nullable=False)
+        created_at = db.Column(db.DateTime, default=datetime.utcnow)
+        updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+        
+        def to_dict(self):
+            return {
+                'id': self.id,
+                'user_id': self.user_id,
+                'balance': round(self.balance, 2),
+                'total_deposited': round(self.total_deposited, 2),
+                'total_withdrawn': round(self.total_withdrawn, 2),
+                'total_invested': round(self.total_invested, 2),
+                'total_earnings': round(self.total_earnings, 2),
+                'created_at': self.created_at.isoformat(),
+                'updated_at': self.updated_at.isoformat()
+                }
+class WalletTransaction(db.Model):
+    __tablename__ = 'wallet_transactions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    wallet_id = db.Column(db.Integer, db.ForeignKey('wallets.id'), nullable=False)
+    transaction_type = db.Column(db.String(20), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    balance_before = db.Column(db.Float, nullable=False)
+    balance_after = db.Column(db.Float, nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+    reference_id = db.Column(db.String(100), nullable=True)
+    reference_type = db.Column(db.String(50), nullable=True)
+    status = db.Column(db.String(20), default='completed')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'wallet_id': self.wallet_id,
+            'transaction_type': self.transaction_type,
+            'amount': round(self.amount, 2),
+            'balance_before': round(self.balance_before, 2),
+            'balance_after': round(self.balance_after, 2),
+            'description': self.description,
+            'reference_id': self.reference_id,
+            'reference_type': self.reference_type,
+            'status': self.status,
+            'created_at': self.created_at.isoformat()
+        }

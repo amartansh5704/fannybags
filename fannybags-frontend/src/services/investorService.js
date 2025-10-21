@@ -2,16 +2,24 @@
 import api from './api';
 
 export const investorService = {
+  // 🔥 FIXED: Correct URL to match backend route
+  getPortfolio: async (userId) => {
+    console.log('🌐 Calling API: /investor/portfolio/' + userId);
+    const response = await api.get(`/investor/portfolio/${userId}`);
+    console.log('🌐 API Response:', response.data);
+    return response.data;
+  },
+
   getHoldings: async (userId) => {
     const response = await api.get(`/users/${userId}/holdings`);
     return response.data;
   },
   
   getExpectedReturns: async (userId) => {
-  const response = await api.get(`/users/${userId}/expected-returns`);
-  console.log('Expected returns response:', response.data);
-  return response.data;
-},
+    const response = await api.get(`/users/${userId}/expected-returns`);
+    console.log('Expected returns response:', response.data);
+    return response.data;
+  },
 
   getTransactions: async (userId) => {
     // Add validation

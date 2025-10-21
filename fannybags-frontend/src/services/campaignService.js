@@ -61,4 +61,9 @@ getArtistCampaigns: async (artistId) => {
   return response.data;
 },
 
+predictRevenue: async (campaignData) => {
+  const response = await api.post('/campaigns/predict-revenue', campaignData);
+  return response.data;
+}
+
 };

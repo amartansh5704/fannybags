@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { campaignService } from '../services/campaignService';
 import { useAuthStore } from '../store/authStore';
 import InvestmentForm from '../components/campaigns/InvestmentForm';
+import AIPredictor from '../components/campaigns/AIPredictor';
 
 export default function CampaignDetail() {
   const { id } = useParams();
@@ -254,6 +255,13 @@ export default function CampaignDetail() {
             </div>
           </div>
         )}
+        {/* AI Revenue Predictor */}
+        <div className="mt-10">
+          <AIPredictor
+          revenueSharePct={campaign?.revenue_share_pct || 40}
+          campaignBudget={campaign?.target_amount || 10000}
+/> 
+          </div>
       </div>
     </div>
   );

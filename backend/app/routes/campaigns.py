@@ -3,6 +3,9 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Campaign, User, Partition, Transaction
 from datetime import datetime
+import os
+from werkzeug.utils import secure_filename
+from flask import send_from_directory
 
 bp = Blueprint('campaigns', __name__, url_prefix='/api/campaigns')
 
@@ -37,6 +40,7 @@ def create_campaign():
         artist_id=user_id,
         title=data['title'],
         description=data.get('description'),
+        genre=data.get('genre'),
         target_amount=data['target_amount'],
         revenue_share_pct=data['revenue_share_pct'],
         partition_price=data['partition_price'],
@@ -68,8 +72,11 @@ def list_campaigns():
         'target_amount': c.target_amount,
         'amount_raised': c.amount_raised,
         'revenue_share_pct': c.revenue_share_pct,
+        'partition_price': c.partition_price,  # 🔥 ADDED
         'funding_status': c.funding_status,
         'artist_id': c.artist_id,
+        'artwork_url': c.artwork_url,  # 🔥 ADDED
+        'audio_preview_url': c.audio_preview_url,  # 🔥 ADDED
         'created_at': c.created_at.isoformat(),
         'start_date': c.start_date.isoformat() if c.start_date else None,
         'end_date': c.end_date.isoformat() if c.end_date else None
@@ -98,6 +105,8 @@ def get_my_campaigns():
         'total_partitions': c.total_partitions,
         'funding_status': c.funding_status,
         'artist_id': c.artist_id,
+        'artwork_url': c.artwork_url,  # 🔥 ADDED
+        'audio_preview_url': c.audio_preview_url,  # 🔥 ADDED
         'expected_streams_3m': c.expected_streams_3m,
         'expected_revenue_3m': c.expected_revenue_3m,
         'created_at': c.created_at.isoformat(),
@@ -121,7 +130,10 @@ def get_campaign(campaign_id):
         'partition_price': campaign.partition_price,
         'total_partitions': campaign.total_partitions,
         'funding_status': campaign.funding_status,
+        'artist_id': campaign.artist_id,  # 🔥 ADDED
         'artist_name': artist.name if artist else 'Unknown',
+        'artwork_url': campaign.artwork_url,  # 🔥 ADDED
+        'audio_preview_url': campaign.audio_preview_url,  # 🔥 ADDED
         'sharing_term': campaign.sharing_term,
         'expected_streams_3m': campaign.expected_streams_3m,
         'expected_revenue_3m': campaign.expected_revenue_3m,
@@ -145,8 +157,6 @@ def publish_campaign(campaign_id):
         'message': 'Campaign published successfully',
         'campaign_id': campaign.id
     }), 200
-
-from flask_jwt_extended import jwt_required, get_jwt_identity
 
 @bp.route('/<int:campaign_id>/analytics', methods=['GET'])
 @jwt_required(optional=True)  # allow public access; token optional
@@ -402,12 +412,128 @@ def get_artist_campaigns(artist_id):
         'total_partitions': c.total_partitions,
         'funding_status': c.funding_status,
         'artist_id': c.artist_id,
+        'artwork_url': c.artwork_url,  # 🔥 ADDED
+        'audio_preview_url': c.audio_preview_url,  # 🔥 ADDED
         'expected_streams_3m': c.expected_streams_3m,
         'expected_revenue_3m': c.expected_revenue_3m,
         'start_date': c.start_date.isoformat() if c.start_date else None,
         'end_date': c.end_date.isoformat() if c.end_date else None,
         'created_at': c.created_at.isoformat()
     } for c in campaigns]), 200
+
+# Helper function to check file extensions
+def allowed_file(filename, file_type='image'):
+    from flask import current_app
+    if file_type == 'image':
+        allowed = current_app.config.get('ALLOWED_IMAGE_EXTENSIONS', {'png', 'jpg', 'jpeg', 'gif'})
+    else:  # audio
+        allowed = current_app.config.get('ALLOWED_AUDIO_EXTENSIONS', {'mp3', 'wav', 'm4a', 'ogg'})
+    
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed
+
+
+# Upload artwork
+@bp.route('/<int:campaign_id>/upload/artwork', methods=['POST'])
+@jwt_required()
+def upload_artwork(campaign_id):
+    user_id = int(get_jwt_identity())
+    campaign = Campaign.query.get(campaign_id)
+    
+    if not campaign:
+        return jsonify({'error': 'Campaign not found'}), 404
+    
+    if campaign.artist_id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    if not allowed_file(file.filename, 'image'):
+        return jsonify({'error': 'Invalid file type. Allowed: PNG, JPG, JPEG, GIF'}), 400
+    
+    # Create safe filename
+    filename = secure_filename(file.filename)
+    timestamp = int(datetime.utcnow().timestamp())
+    filename = f"campaign_{campaign_id}_{timestamp}_{filename}"
+    
+    # Save file
+    upload_folder = os.path.join('uploads', 'artwork')
+    os.makedirs(upload_folder, exist_ok=True)
+    filepath = os.path.join(upload_folder, filename)
+    file.save(filepath)
+    
+    # Update campaign
+    campaign.artwork_url = f'/uploads/artwork/{filename}'
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Artwork uploaded successfully',
+        'artwork_url': campaign.artwork_url
+    }), 200
+
+
+# Upload audio preview
+@bp.route('/<int:campaign_id>/upload/audio', methods=['POST'])
+@jwt_required()
+def upload_audio(campaign_id):
+    user_id = int(get_jwt_identity())
+    campaign = Campaign.query.get(campaign_id)
+    
+    if not campaign:
+        return jsonify({'error': 'Campaign not found'}), 404
+    
+    if campaign.artist_id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    if not allowed_file(file.filename, 'audio'):
+        return jsonify({'error': 'Invalid file type. Allowed: MP3, WAV, M4A, OGG'}), 400
+    
+    # Create safe filename
+    filename = secure_filename(file.filename)
+    timestamp = int(datetime.utcnow().timestamp())
+    filename = f"campaign_{campaign_id}_{timestamp}_{filename}"
+    
+    # Save file
+    upload_folder = os.path.join('uploads', 'audio')
+    os.makedirs(upload_folder, exist_ok=True)
+    filepath = os.path.join(upload_folder, filename)
+    file.save(filepath)
+    
+    # Update campaign
+    campaign.audio_preview_url = f'/uploads/audio/{filename}'
+    db.session.commit()
+    
+    return jsonify({
+        'success': True,
+        'message': 'Audio preview uploaded successfully',
+        'audio_preview_url': campaign.audio_preview_url
+    }), 200
+
+
+# Serve uploaded files
+@bp.route('/uploads/<path:folder>/<path:filename>')
+def serve_upload(folder, filename):
+    """Serve uploaded files"""
+    import os
+    from flask import send_from_directory, current_app
+    
+    upload_folder = os.path.join(current_app.root_path, '..', 'uploads', folder)
+    return send_from_directory(upload_folder, filename)
+
 
 @bp.route('/predict-revenue', methods=['POST'])
 def predict_revenue():
@@ -473,12 +599,11 @@ def predict_revenue():
     # Calculate base streams (3 months)
     base_streams = marketing_budget * marketing_effectiveness * genre_factor * follower_boost * video_quality_boost * viral_mult
     
-    # Platform distribution (Indian market reality)
     # Platform distribution (REAL Indian market - Spotify + YouTube dominate)
     youtube_views = int(base_streams * 0.50)     # 50% YouTube (FREE = KING in India)
     spotify_streams = int(base_streams * 0.40)   # 40% Spotify (most popular premium)
     other_streams = int(base_streams * 0.08)     # 8% Others (JioSaavn, Gaana, Wynk)
-    apple_streams = int(base_streams * 0.02)     # 2% Apple Music (very rare)     # 7% Others
+    apple_streams = int(base_streams * 0.02)     # 2% Apple Music (very rare)
     
     # Add organic growth from followers
     organic_spotify = int(artist_followers * 3 * campaign_duration)  # Each follower = 3 streams/month
@@ -494,47 +619,47 @@ def predict_revenue():
     # Revenue calculations (₹) - Indian market rates
     spotify_rate = 0.046      # ₹ per stream
     apple_rate = 0.25         # ₹ per stream (high rate but almost no users)
+    
     # YouTube revenue (REALISTIC Indian music CPM)
-# Net CPM = After YouTube's 45% cut + accounting for monetization rate
-
-# Base CPM depends on audience geography
+    # Net CPM = After YouTube's 45% cut + accounting for monetization rate
+    
+    # Base CPM depends on audience geography
     indian_cpm = 60   # ₹60/1000 for Indian audience (conservative)
     global_cpm = 120  # ₹120/1000 if international audience
-
-# Marketing budget determines reach quality
-# Higher budget = better targeting = more global audience mix
+    
+    # Marketing budget determines reach quality
+    # Higher budget = better targeting = more global audience mix
     if marketing_budget >= 30000:
-    # Big budget: 30% international, 70% Indian
+        # Big budget: 30% international, 70% Indian
         effective_cpm = (indian_cpm * 0.70) + (global_cpm * 0.30)  # ~₹78
     elif marketing_budget >= 15000:
-    # Medium budget: 15% international, 85% Indian
+        # Medium budget: 15% international, 85% Indian
         effective_cpm = (indian_cpm * 0.85) + (global_cpm * 0.15)  # ~₹69
     else:
-    # Small budget: mostly Indian audience
+        # Small budget: mostly Indian audience
         effective_cpm = (indian_cpm * 0.95) + (global_cpm * 0.05)  # ~₹63
-
-# Genre boost (some genres travel better internationally)
+    
+    # Genre boost (some genres travel better internationally)
     if genre in ['dhh', 'hip-hop', 'rap']:
         effective_cpm *= 1.1  # DHH has global appeal
     elif genre in ['bollywood', 'punjabi']:
         effective_cpm *= 1.15  # Very popular globally
-
-# Viral factor (viral videos get better ad placements)
+    
+    # Viral factor (viral videos get better ad placements)
     if viral_factor == 'viral':
         effective_cpm *= 1.2  # Better retention = better ads
     elif viral_factor == 'high':
         effective_cpm *= 1.1
-
-# Monetization rate (not all views are monetized)
+    
+    # Monetization rate (not all views are monetized)
     monetization_rate = 0.85  # 85% of views have ads (ad blockers, etc.)
     monetized_views = youtube_views * monetization_rate
-
-# Calculate revenue
+    
+    # Calculate revenue
     youtube_revenue = (monetized_views / 1000) * effective_cpm
     other_rate = 0.03         # ₹ per stream (JioSaavn, Gaana, Wynk average)
     reel_rate = 0.05          # ₹ per reel use (audio)
     
-    # Calculate revenues
     # Calculate revenues
     spotify_revenue = spotify_streams * spotify_rate
     apple_revenue = apple_streams * apple_rate
@@ -542,25 +667,25 @@ def predict_revenue():
     reels_revenue = reels_uses * reel_rate
     
     # Sync licensing (VERY RARE for indie artists)
-# Only high-quality videos with good marketing have a chance
+    # Only high-quality videos with good marketing have a chance
     sync_deals = 0
     sync_revenue = 0
-
-# Need minimum thresholds to even have a chance
+    
+    # Need minimum thresholds to even have a chance
     if marketing_budget >= 20000 and video_budget >= 15000:
         sync_base_prob = 0.02  # 2% base chance (very low)
-    
-    # Follower boost (need decent following)
+        
+        # Follower boost (need decent following)
         sync_follower_boost = 0.01 if artist_followers > 50000 else 0
-    
-    # Viral boost (viral songs get noticed)
+        
+        # Viral boost (viral songs get noticed)
         sync_viral_boost = 0.03 if viral_factor == 'viral' else 0.01 if viral_factor == 'high' else 0
-    
+        
         sync_probability = sync_base_prob + sync_follower_boost + sync_viral_boost
-    
-    # Roll the dice
+        
+        # Roll the dice
         if random.random() < sync_probability:
-        # Small indie sync deals: ₹2000-8000 (realistic)
+            # Small indie sync deals: ₹2000-8000 (realistic)
             sync_deals = 1  # Usually just 1 deal
             sync_revenue = random.choice([2000, 3000, 5000, 8000])  # Fixed realistic amounts
     elif marketing_budget >= 50000:  # Big budget might get lucky
@@ -569,7 +694,7 @@ def predict_revenue():
             sync_revenue = random.choice([5000, 10000, 15000])  # Bigger deal
     
     # Merchandise (REALISTIC - based on follower base, not streams)
-# 10k followers = 2-3 merch, 50k = 5-10, 100k = 15-20
+    # 10k followers = 2-3 merch, 50k = 5-10, 100k = 15-20
     merch_base = int((artist_followers / 10000) * 2)  # Base: 2 sales per 10k followers
     merch_viral_boost = 1.5 if viral_factor == 'viral' else 1.0  # Viral songs sell more merch
     merch_random = random.uniform(0.8, 1.2)  # Add some randomness
@@ -611,7 +736,6 @@ def predict_revenue():
     confidence_followers = min(10, artist_followers / 2000)  # +0.5% per 1000 followers
     confidence_score = min(95, confidence_base + confidence_marketing + confidence_video + confidence_followers)
     
-    # Investor calculations
     # Investor pool (dynamic based on campaign revenue share)
     revenue_share_pct = float(data.get('revenue_share_pct', 40))
     revenue_share_pct = max(0.0, min(revenue_share_pct, 100.0))  # Clamp 0-100
@@ -643,7 +767,6 @@ def predict_revenue():
                 'youtube': {
                     'views': youtube_views, 
                     'revenue': round(youtube_revenue, 2)
-                
                 },
                 'other_platforms': {
                     'streams': other_streams, 
@@ -677,7 +800,7 @@ def predict_revenue():
             'investor_share_12m': round(gross_revenue_12m * (investor_pool_pct / 100.0), 2),
             'min_investment': 1000,
             'max_investment': total_investment
-},
+        },
         'investment': {
             'marketing': marketing_budget,
             'video': video_budget,

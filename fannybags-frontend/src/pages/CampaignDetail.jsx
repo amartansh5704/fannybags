@@ -143,8 +143,33 @@ export default function CampaignDetail() {
 
         {/* Campaign Header */}
         <div className="mb-10">
-          <div className="w-full h-64 bg-gradient-to-r from-fb-purple to-fb-pink rounded-lg flex items-center justify-center mb-6">
-            <span className="text-6xl">🎵</span>
+          {/* 🔥 UPDATED: Artwork & Audio Section */}
+          <div className="w-full h-64 bg-gradient-to-r from-fb-purple to-fb-pink rounded-lg flex items-center justify-center mb-6 overflow-hidden relative">
+            {campaign.artwork_url ? (
+              <img 
+                src={`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${campaign.artwork_url}`}
+                alt={campaign.title}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+            ) : null}
+            <span className={`text-6xl ${campaign.artwork_url ? 'hidden' : ''}`}>🎵</span>
+            
+            {/* Audio Player */}
+            {campaign.audio_preview_url && (
+              <div className="absolute bottom-4 left-4 right-4">
+                <audio 
+                  controls 
+                  className="w-full"
+                  src={`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${campaign.audio_preview_url}`}
+                >
+                  Your browser does not support audio.
+                </audio>
+              </div>
+            )}
           </div>
 
           <h1 className="text-4xl font-bold mb-2">{campaign.title}</h1>
@@ -255,13 +280,11 @@ export default function CampaignDetail() {
             </div>
           </div>
         )}
+
         {/* AI Revenue Predictor */}
         <div className="mt-10">
-          <AIPredictor
-          revenueSharePct={campaign?.revenue_share_pct || 40}
-          campaignBudget={campaign?.target_amount || 10000}
-/> 
-          </div>
+          <AIPredictor revenueSharePct={campaign?.revenue_share_pct || 40} />
+        </div>
       </div>
     </div>
   );

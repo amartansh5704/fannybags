@@ -13,6 +13,7 @@ import RevenueUpload from '../components/artist/RevenueUpload';
 import CampaignMetrics from '../components/artist/CampaignMetrics';
 import ProgressChart from '../components/artist/ProgressChart';
 import RevenueChart from '../components/artist/RevenueChart';
+import CampaignWizard from '../components/artist/CampaignWizard';
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuthStore();
@@ -225,13 +226,13 @@ export default function Dashboard() {
         {role === 'artist' && (
           <div className="mb-10">
             {showCreateForm ? (
-              <>
-                <button onClick={() => { setShowCreateForm(false); refreshCampaigns(); }} className="mb-6 text-fb-pink hover:underline">
-                  ← Back
-                </button>
-                <CreateCampaignForm onSuccess={() => { setShowCreateForm(false); refreshCampaigns(); }} />
-              </>
-            ) : (
+  <>
+    <button onClick={() => { setShowCreateForm(false); refreshCampaigns(); }} className="mb-6 text-fb-pink hover:underline">
+      ← Back
+    </button>
+    <CampaignWizard onSuccess={() => { setShowCreateForm(false); refreshCampaigns(); }} />
+  </>
+) : (
               <>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold">Your Campaigns</h2>

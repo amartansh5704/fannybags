@@ -26,6 +26,7 @@ class Campaign(db.Model):
     artist_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text)
+    genre = db.Column(db.String(50))  # ADD THIS LINE
     audio_preview_url = db.Column(db.String(500))
     artwork_url = db.Column(db.String(500))
     target_amount = db.Column(db.Float, nullable=False)

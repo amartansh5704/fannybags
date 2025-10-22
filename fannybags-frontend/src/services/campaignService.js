@@ -64,6 +64,20 @@ getArtistCampaigns: async (artistId) => {
 predictRevenue: async (campaignData) => {
   const response = await api.post('/campaigns/predict-revenue', campaignData);
   return response.data;
+},
+
+uploadArtwork: async (campaignId, formData) => {
+  const response = await api.post(`/campaigns/${campaignId}/upload/artwork`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
+},
+
+uploadAudio: async (campaignId, formData) => {
+  const response = await api.post(`/campaigns/${campaignId}/upload/audio`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
 }
 
 };

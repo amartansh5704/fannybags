@@ -20,7 +20,9 @@ export default function CampaignBrowse() {
     const endDate = campaign.end_date ? new Date(campaign.end_date) : null;
     const startDate = campaign.start_date ? new Date(campaign.start_date) : null;
     
-    const percentage = (campaign.amount_raised / campaign.target_amount) * 100;
+    const amountRaised = campaign.amount_raised || 0;
+    const targetAmount = campaign.target_amount || 1;
+    const percentage = (amountRaised / targetAmount) * 100;
 
     // If campaign has ended
     if (endDate && today > endDate) {
@@ -44,7 +46,7 @@ export default function CampaignBrowse() {
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
       filtered = filtered.filter(campaign =>
-        campaign.title.toLowerCase().includes(searchTerm) ||
+        campaign.title?.toLowerCase().includes(searchTerm) ||
         campaign.description?.toLowerCase().includes(searchTerm)
       );
     }
@@ -58,7 +60,7 @@ export default function CampaignBrowse() {
     // Price range filter
     if (filters.priceRange !== 'all') {
       filtered = filtered.filter(campaign => {
-        const price = campaign.partition_price;
+        const price = campaign.partition_price || 0;
         switch (filters.priceRange) {
           case '1k-10k':
             return price >= 1000 && price <= 10000;
@@ -75,10 +77,10 @@ export default function CampaignBrowse() {
     // Sort filter
     switch (filters.sort) {
       case 'newest':
-        filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        filtered.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         break;
       case 'most_funded':
-        filtered.sort((a, b) => b.amount_raised - a.amount_raised);
+        filtered.sort((a, b) => (b.amount_raised || 0) - (a.amount_raised || 0));
         break;
       case 'ending_soon':
         filtered.sort((a, b) => {
@@ -88,10 +90,10 @@ export default function CampaignBrowse() {
         });
         break;
       case 'lowest_price':
-        filtered.sort((a, b) => a.partition_price - b.partition_price);
+        filtered.sort((a, b) => (a.partition_price || 0) - (b.partition_price || 0));
         break;
       case 'highest_price':
-        filtered.sort((a, b) => b.partition_price - a.partition_price);
+        filtered.sort((a, b) => (b.partition_price || 0) - (a.partition_price || 0));
         break;
       default:
         break;
@@ -170,58 +172,135 @@ export default function CampaignBrowse() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCampaigns.map((campaign) => {
-              const percentage = (campaign.amount_raised / campaign.target_amount) * 100;
+              // 🔥 SAFETY: Extract values with fallbacks
+              const amountRaised = campaign.amount_raised || 0;
+              const targetAmount = campaign.target_amount || 1;
+              const partitionPrice = campaign.partition_price || 0;
+              const revenueSharePct = campaign.revenue_share_pct || 0;
+              const percentage = (amountRaised / targetAmount) * 100;
               const status = getCampaignStatus(campaign);
+              
+              // 🔥 Build full URLs for artwork and audio
+              const artworkUrl = campaign.artwork_url 
+                ? `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${campaign.artwork_url}`
+                : null;
+                
+              const audioUrl = campaign.audio_preview_url
+                ? `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${campaign.audio_preview_url}`
+                : null;
 
               return (
                 <div
                   key={campaign.id}
                   onClick={() => navigate(`/campaign/${campaign.id}`)}
-                  className="bg-fb-surface p-6 rounded-lg cursor-pointer hover:transform hover:scale-105 transition shadow-lg"
+                  className="bg-fb-surface rounded-lg overflow-hidden cursor-pointer hover:transform hover:scale-105 transition shadow-lg"
                 >
-                  {/* Album Art Container */}
-                  <div className="mb-4 relative">
-                    <div className="w-full h-40 bg-gradient-to-r from-fb-purple to-fb-pink rounded flex items-center justify-center">
-                      <span className="text-4xl">🎵</span>
+                  {/* Album Art Container - Updated with artwork */}
+                  <div className="relative h-48 bg-gradient-to-r from-fb-purple to-fb-pink">
+                    {artworkUrl ? (
+                      <img 
+                        src={artworkUrl} 
+                        alt={campaign.title || 'Campaign'}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className={`${artworkUrl ? 'hidden' : 'flex'} absolute inset-0 items-center justify-center`}
+                      style={{ display: artworkUrl ? 'none' : 'flex' }}
+                    >
+                      <span className="text-6xl">🎵</span>
                     </div>
                     
                     {/* Status Badge - Positioned on top-right of image */}
                     <div className="absolute top-2 right-2">
                       <StatusBadge status={status} />
                     </div>
-                  </div>
-
-                  {/* Campaign Title */}
-                  <h3 className="text-xl font-bold mb-2">{campaign.title}</h3>
-                  
-                  {/* Campaign Description */}
-                  <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-                    {campaign.description || 'No description'}
-                  </p>
-
-                  {/* Progress Bar Component */}
-                  <div className="mb-4">
-                    <ProgressBar 
-                      raised={campaign.amount_raised}
-                      target={campaign.target_amount}
-                      percentage={percentage}
-                    />
-                  </div>
-
-                  {/* Revenue Share Footer */}
-                  <div className="flex justify-between text-sm text-gray-400 pt-3 border-t border-gray-600">
-                    <span>{campaign.revenue_share_pct}% revenue share</span>
-                    <div className="flex gap-2">
+                    
+                    {/* Audio Preview Button */}
+                    {audioUrl && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/artist/${campaign.artist_id}`);
+                          const audio = document.getElementById(`audio-${campaign.id}`);
+                          if (audio.paused) {
+                            // Stop all other audio
+                            document.querySelectorAll('audio').forEach(a => a.pause());
+                            audio.play();
+                          } else {
+                            audio.pause();
+                          }
                         }}
-                        className="text-fb-pink hover:text-white text-sm font-semibold"
+                        className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white p-2 rounded-full hover:bg-black/90 transition"
+                        title="Play preview"
                       >
-                        View Artist →
+                        🎧
                       </button>
-                      <span className="text-fb-pink">View Details →</span>
+                    )}
+                    
+                    {/* Hidden Audio Element */}
+                    {audioUrl && (
+                      <audio id={`audio-${campaign.id}`} src={audioUrl} />
+                    )}
+                  </div>
+
+                  <div className="p-6">
+                    {/* Campaign Title */}
+                    <h3 className="text-xl font-bold mb-2">{campaign.title || 'Untitled Campaign'}</h3>
+                    
+                    {/* Artist Name if available */}
+                    {campaign.artist_name && (
+                      <p className="text-sm text-fb-pink mb-2">
+                        by {campaign.artist_name}
+                      </p>
+                    )}
+                    
+                    {/* Campaign Description */}
+                    <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+                      {campaign.description || 'No description'}
+                    </p>
+
+                    {/* Progress Bar Component */}
+                    <div className="mb-4">
+                      <ProgressBar 
+                        raised={amountRaised}
+                        target={targetAmount}
+                        percentage={percentage}
+                      />
+                    </div>
+
+                    {/* Campaign Stats - WITH SAFETY CHECKS */}
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <p className="text-gray-400 text-xs">Raised</p>
+                        <p className="font-bold">₹{amountRaised.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-xs">Per Share</p>
+                        <p className="font-bold">₹{partitionPrice.toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    {/* Revenue Share Footer */}
+                    <div className="flex justify-between text-sm text-gray-400 pt-3 border-t border-gray-600">
+                      <span>{revenueSharePct}% revenue share</span>
+                      <div className="flex gap-2">
+                        {campaign.artist_id && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/artist/${campaign.artist_id}`);
+                            }}
+                            className="text-fb-pink hover:text-white text-sm font-semibold"
+                          >
+                            View Artist →
+                          </button>
+                        )}
+                        <span className="text-fb-pink">View Details →</span>
+                      </div>
                     </div>
                   </div>
                 </div>

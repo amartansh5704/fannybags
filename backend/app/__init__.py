@@ -1,17 +1,28 @@
-from flask import Flask
+from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
+import os
 
 db = SQLAlchemy()
 jwt = JWTManager()
 
 def create_app():
     app = Flask(__name__)
+    
     app.config.from_object('config.Config')
+    
+    # 🔥 ADD: Configure upload folder
+    app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'uploads')
     
     # Initialize extensions
     db.init_app(app)
     jwt.init_app(app)
+    
+    # 🔥 ADD: Serve uploaded files route
+    @app.route('/uploads/<path:folder>/<path:filename>')
+    def uploaded_file(folder, filename):
+        upload_path = os.path.join(app.config['UPLOAD_FOLDER'], folder)
+        return send_from_directory(upload_path, filename)
     
     # CORS headers on all responses (single place only)
     @app.after_request

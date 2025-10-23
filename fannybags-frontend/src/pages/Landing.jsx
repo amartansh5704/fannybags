@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import TrendingSection from '../components/landing/TrendingSection';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -46,6 +47,9 @@ export default function Landing() {
           </div>
         </div>
       </div>
+      {/* --- ADD THIS NEW SECTION --- */}
+      <TrendingSection />
+      {/* --- END OF NEW SECTION --- */}
 
       {/* CTA Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">

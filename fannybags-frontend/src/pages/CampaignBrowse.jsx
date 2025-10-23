@@ -1,45 +1,23 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+// We no longer import useNavigate here, it's in the card
 import { campaignService } from '../services/campaignService';
-import ProgressBar from '../components/common/ProgressBar';
-import StatusBadge from '../components/common/StatusBadge';
+// We no longer import ProgressBar or StatusBadge
 import FilterPanel from '../components/common/FilterPanel';
+// --- NEW IMPORTS ---
+import CampaignCard from '../components/campaigns/CampaignCard'; // Import the new card
 
 export default function CampaignBrowse() {
   const [campaigns, setCampaigns] = useState([]);
   const [filteredCampaigns, setFilteredCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
+  // const navigate = useNavigate(); // No longer needed here
 
-  // Function to determine campaign status
-  const getCampaignStatus = (campaign) => {
-    const today = new Date();
-    
-    // Handle null dates gracefully
-    const endDate = campaign.end_date ? new Date(campaign.end_date) : null;
-    const startDate = campaign.start_date ? new Date(campaign.start_date) : null;
-    
-    const amountRaised = campaign.amount_raised || 0;
-    const targetAmount = campaign.target_amount || 1;
-    const percentage = (amountRaised / targetAmount) * 100;
+  // getCampaignStatus is now imported from utils!
 
-    // If campaign has ended
-    if (endDate && today > endDate) {
-      return percentage >= 100 ? 'successful' : 'failed';
-    }
-    
-    // If campaign hasn't started
-    if (startDate && today < startDate) {
-      return 'upcoming';
-    }
-    
-    // Campaign is currently active
-    return 'active';
-  };
-
-  // Function to apply filters
+  // Function to apply filters (remains the same)
   const applyFilters = (campaigns, filters) => {
+    // ... (Your existing filter logic is fine, no changes needed)
     let filtered = [...campaigns];
 
     // Search filter
@@ -51,9 +29,8 @@ export default function CampaignBrowse() {
       );
     }
 
-    // Genre filter (we'll add genre to campaigns later)
+    // Genre filter
     if (filters.genre) {
-      // For now, we'll skip genre filtering since we don't have genre data
       // filtered = filtered.filter(campaign => campaign.genre === filters.genre);
     }
 
@@ -102,13 +79,15 @@ export default function CampaignBrowse() {
     return filtered;
   };
 
-  // Handle filter changes
+  // Handle filter changes (remains the same)
   const handleFiltersChange = (filters) => {
+    // ... (no changes needed)
     const filtered = applyFilters(campaigns, filters);
     setFilteredCampaigns(filtered);
   };
 
   useEffect(() => {
+    // ... (no changes needed)
     const fetchCampaigns = async () => {
       try {
         setLoading(true);
@@ -122,11 +101,11 @@ export default function CampaignBrowse() {
         setLoading(false);
       }
     };
-
     fetchCampaigns();
   }, []);
 
   if (loading) {
+    // ... (no changes needed)
     return (
       <div className="min-h-screen bg-fb-dark text-white pt-20 flex items-center justify-center">
         <p>Loading campaigns...</p>
@@ -135,6 +114,7 @@ export default function CampaignBrowse() {
   }
 
   if (error) {
+    // ... (no changes needed)
     return (
       <div className="min-h-screen bg-fb-dark text-white pt-20 flex items-center justify-center">
         <p className="text-red-400">{error}</p>
@@ -161,7 +141,8 @@ export default function CampaignBrowse() {
 
         {filteredCampaigns.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-400 mb-6">No campaigns match your filters</p>
+             {/* ... (no changes needed) */}
+             <p className="text-gray-400 mb-6">No campaigns match your filters</p>
             <button
               onClick={() => window.location.reload()}
               className="px-6 py-2 bg-fb-pink text-white rounded hover:opacity-90 transition"
@@ -171,141 +152,16 @@ export default function CampaignBrowse() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCampaigns.map((campaign) => {
-              // 🔥 SAFETY: Extract values with fallbacks
-              const amountRaised = campaign.amount_raised || 0;
-              const targetAmount = campaign.target_amount || 1;
-              const partitionPrice = campaign.partition_price || 0;
-              const revenueSharePct = campaign.revenue_share_pct || 0;
-              const percentage = (amountRaised / targetAmount) * 100;
-              const status = getCampaignStatus(campaign);
-              
-              // 🔥 Build full URLs for artwork and audio
-              const artworkUrl = campaign.artwork_url 
-                ? `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${campaign.artwork_url}`
-                : null;
-                
-              const audioUrl = campaign.audio_preview_url
-                ? `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${campaign.audio_preview_url}`
-                : null;
-
-              return (
-                <div
-                  key={campaign.id}
-                  onClick={() => navigate(`/campaign/${campaign.id}`)}
-                  className="bg-fb-surface rounded-lg overflow-hidden cursor-pointer hover:transform hover:scale-105 transition shadow-lg"
-                >
-                  {/* Album Art Container - Updated with artwork */}
-                  <div className="relative h-48 bg-gradient-to-r from-fb-purple to-fb-pink">
-                    {artworkUrl ? (
-                      <img 
-                        src={artworkUrl} 
-                        alt={campaign.title || 'Campaign'}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
-                        }}
-                      />
-                    ) : null}
-                    <div 
-                      className={`${artworkUrl ? 'hidden' : 'flex'} absolute inset-0 items-center justify-center`}
-                      style={{ display: artworkUrl ? 'none' : 'flex' }}
-                    >
-                      <span className="text-6xl">🎵</span>
-                    </div>
-                    
-                    {/* Status Badge - Positioned on top-right of image */}
-                    <div className="absolute top-2 right-2">
-                      <StatusBadge status={status} />
-                    </div>
-                    
-                    {/* Audio Preview Button */}
-                    {audioUrl && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const audio = document.getElementById(`audio-${campaign.id}`);
-                          if (audio.paused) {
-                            // Stop all other audio
-                            document.querySelectorAll('audio').forEach(a => a.pause());
-                            audio.play();
-                          } else {
-                            audio.pause();
-                          }
-                        }}
-                        className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm text-white p-2 rounded-full hover:bg-black/90 transition"
-                        title="Play preview"
-                      >
-                        🎧
-                      </button>
-                    )}
-                    
-                    {/* Hidden Audio Element */}
-                    {audioUrl && (
-                      <audio id={`audio-${campaign.id}`} src={audioUrl} />
-                    )}
-                  </div>
-
-                  <div className="p-6">
-                    {/* Campaign Title */}
-                    <h3 className="text-xl font-bold mb-2">{campaign.title || 'Untitled Campaign'}</h3>
-                    
-                    {/* Artist Name if available */}
-                    {campaign.artist_name && (
-                      <p className="text-sm text-fb-pink mb-2">
-                        by {campaign.artist_name}
-                      </p>
-                    )}
-                    
-                    {/* Campaign Description */}
-                    <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-                      {campaign.description || 'No description'}
-                    </p>
-
-                    {/* Progress Bar Component */}
-                    <div className="mb-4">
-                      <ProgressBar 
-                        raised={amountRaised}
-                        target={targetAmount}
-                        percentage={percentage}
-                      />
-                    </div>
-
-                    {/* Campaign Stats - WITH SAFETY CHECKS */}
-                    <div className="grid grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <p className="text-gray-400 text-xs">Raised</p>
-                        <p className="font-bold">₹{amountRaised.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400 text-xs">Per Share</p>
-                        <p className="font-bold">₹{partitionPrice.toLocaleString()}</p>
-                      </div>
-                    </div>
-
-                    {/* Revenue Share Footer */}
-                    <div className="flex justify-between text-sm text-gray-400 pt-3 border-t border-gray-600">
-                      <span>{revenueSharePct}% revenue share</span>
-                      <div className="flex gap-2">
-                        {campaign.artist_id && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/artist/${campaign.artist_id}`);
-                            }}
-                            className="text-fb-pink hover:text-white text-sm font-semibold"
-                          >
-                            View Artist →
-                          </button>
-                        )}
-                        <span className="text-fb-pink">View Details →</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {/* --- THIS IS THE ONLY PART THAT CHANGES --- */}
+            {filteredCampaigns.map((campaign) => (
+              <CampaignCard 
+                key={campaign.id} 
+                campaign={campaign} 
+                // We don't pass badge props here,
+                // so they will just be normal cards.
+              />
+            ))}
+            {/* --- END OF CHANGED SECTION --- */}
           </div>
         )}
       </div>

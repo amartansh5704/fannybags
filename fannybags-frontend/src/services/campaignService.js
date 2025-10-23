@@ -83,6 +83,12 @@ uploadAudio: async (campaignId, formData) => {
 getInvestments: async (campaignId) => {
   const response = await api.get(`/campaigns/${campaignId}/investments`);
   return response.data;
-}
+},
+
+getTrendingCampaigns: async () => {
+    // No auth needed, it's a public route
+    const response = await api.get('/campaigns/trending');
+    return response.data;
+  }
 
 };

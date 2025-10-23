@@ -5,6 +5,9 @@ import { useAuthStore } from '../store/authStore';
 import InvestmentForm from '../components/campaigns/InvestmentForm';
 import AIPredictor from '../components/campaigns/AIPredictor';
 import InvestmentHistory from '../components/campaigns/InvestmentHistory';
+import { IoShareSocial } from 'react-icons/io5'; // <-- ADDED
+import ShareModal from '../components/common/ShareModal'; // <-- ADDED
+
 
 export default function CampaignDetail() {
   const { id } = useParams();
@@ -15,6 +18,7 @@ export default function CampaignDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showInvest, setShowInvest] = useState(false);
+  const [showShare, setShowShare] = useState(false); // <-- ADDED
 
   useEffect(() => {
     const fetchCampaign = async () => {
@@ -131,6 +135,8 @@ export default function CampaignDetail() {
     return false;
   };
 
+  const shareUrl = window.location.href; // <-- ADDED
+
   return (
     <div className="min-h-screen bg-fb-dark text-white pt-20">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
@@ -184,6 +190,15 @@ export default function CampaignDetail() {
             >
               👤 View Artist Profile
             </button>
+            
+            {/* --- ADDED THIS BUTTON --- */}
+            <button
+              onClick={() => setShowShare(true)}
+              className="text-gray-300 hover:text-white font-semibold flex items-center gap-2"
+            >
+              <IoShareSocial /> Share Campaign
+            </button>
+            {/* --- END OF ADDITION --- */}
           </div>
 
           <div className="grid md:grid-cols-2 gap-6 mb-10">
@@ -282,15 +297,26 @@ export default function CampaignDetail() {
           </div>
         )}
         {/* Investment History */}
-<div className="mt-10">
-  <InvestmentHistory campaignId={Number(id)} />
-</div>
+        <div className="mt-10">
+          <InvestmentHistory campaignId={Number(id)} />
+        </div>
 
 
         {/* AI Revenue Predictor */}
         <div className="mt-10">
           <AIPredictor revenueSharePct={campaign?.revenue_share_pct || 40} />
         </div>
+
+        {/* --- ADDED THIS MODAL --- */}
+        {showShare && (
+          <ShareModal
+            title={campaign.title}
+            url={shareUrl}
+            onClose={() => setShowShare(false)}
+          />
+        )}
+        {/* --- END OF ADDITION --- */}
+        
       </div>
     </div>
   );

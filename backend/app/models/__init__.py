@@ -53,6 +53,7 @@ class Campaign(db.Model):
     end_date = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_featured = db.Column(db.Boolean, default=False, nullable=False, server_default='0', index=True)
     
     def __repr__(self):
         return f'<Campaign {self.title}>'

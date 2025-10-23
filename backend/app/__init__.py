@@ -1,11 +1,13 @@
 from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
+from flask_migrate import Migrate  # <-- 1. IMPORT IT
 import os
 from flask_cors import CORS
 
 db = SQLAlchemy()
 jwt = JWTManager()
+migrate = Migrate()  # <-- 2. INSTANTIATE IT
 
 def create_app():
     app = Flask(__name__)
@@ -18,6 +20,7 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
     jwt.init_app(app)
+    migrate.init_app(app, db)  # <-- 3. INITIALIZE IT (connects app and db)
     
     # 🔥 ADD: Serve uploaded files route
     @app.route('/uploads/<path:folder>/<path:filename>')
@@ -28,6 +31,7 @@ def create_app():
     # CORS headers on all responses (single place only)
     @app.after_request
     def after_request(response):
+        # ... (your CORS logic remains unchanged)
         response.headers['Access-Control-Allow-Origin'] = 'http://localhost:5173'
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
         response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
@@ -50,7 +54,8 @@ def create_app():
         app.register_blueprint(campaigns.bp)
         app.register_blueprint(investors.bp)
         
-        # Create tables
+        # Create tables - This is fine for development, but migrations
+        # will handle this in production.
         db.create_all()
     
     return app

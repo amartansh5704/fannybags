@@ -2,10 +2,11 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models import Campaign, User, Partition, Transaction
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
+from sqlalchemy import func, case, cast, Float
 
 bp = Blueprint('campaigns', __name__, url_prefix='/api/campaigns')
 
@@ -81,6 +82,106 @@ def list_campaigns():
         'start_date': c.start_date.isoformat() if c.start_date else None,
         'end_date': c.end_date.isoformat() if c.end_date else None
     } for c in campaigns]), 200
+
+# ... (inside backend/app/routes/campaign.py)
+
+@bp.route('/trending', methods=['GET'])
+def get_trending_campaigns():
+    """
+    Get trending and featured campaigns.
+    Featured campaigns are *always* first.
+    Others are ranked by recent investment volume, funding %, and recency.
+    """
+    try:
+        # 1. Define "recent"
+        recent_days = 7
+        recent_date = datetime.utcnow() - timedelta(days=recent_days)
+
+        # 2. Create a subquery to calculate recent investment volume per campaign
+        # We sum Partition.amount_paid if it was created after 'recent_date'
+        recent_investments_sq = db.session.query(
+            Partition.campaign_id,
+            func.sum(Partition.amount_paid).label('recent_volume')
+        ).filter(
+            Partition.created_at >= recent_date
+        ).group_by(
+            Partition.campaign_id
+        ).subquery()
+
+        # 3. Define calculated fields for ranking
+        
+        # Funding percentage (as a float, handling division by zero)
+        funding_percentage = case(
+            (Campaign.target_amount > 0, cast(Campaign.amount_raised, Float) / Campaign.target_amount),
+            else_=0.0
+        ).label('funding_percentage')
+        
+        # Recent volume (using coalesce to default to 0 if no recent investments)
+        recent_volume = func.coalesce(recent_investments_sq.c.recent_volume, 0.0).label('recent_volume')
+
+        # 4. Build the main query
+        query = db.session.query(
+            Campaign,
+            recent_volume,
+            funding_percentage
+        ).outerjoin(
+            # Join our subquery to the Campaign table
+            recent_investments_sq,
+            Campaign.id == recent_investments_sq.c.campaign_id
+        ).filter(
+            # Only show 'live' campaigns
+            Campaign.funding_status == 'live'
+        ).order_by(
+            # THE RANKING LOGIC:
+            # 1. Featured campaigns are always first
+            Campaign.is_featured.desc(),
+            # 2. Rank by recent investment volume
+            recent_volume.desc(),
+            # 3. Then by how close they are to their goal
+            funding_percentage.desc(),
+            # 4. Finally, newer campaigns get a boost
+            Campaign.created_at.desc()
+        ).limit(6) # Get the Top 6 for the homepage
+
+        results = query.all()
+
+        # 5. Serialize the response
+        trending_campaigns = []
+        for campaign, volume, percent in results:
+            trending_campaigns.append({
+                'id': campaign.id,
+                'title': campaign.title,
+                'description': campaign.description,
+                'target_amount': campaign.target_amount,
+                'amount_raised': campaign.amount_raised,
+                'revenue_share_pct': campaign.revenue_share_pct,
+                'partition_price': campaign.partition_price,
+                'funding_status': campaign.funding_status,
+                'artist_id': campaign.artist_id,
+                'artwork_url': campaign.artwork_url,
+                'audio_preview_url': campaign.audio_preview_url,
+                'created_at': campaign.created_at.isoformat(),
+                'start_date': campaign.start_date.isoformat() if campaign.start_date else None,
+                'end_date': campaign.end_date.isoformat() if campaign.end_date else None,
+                
+                # --- NEW BADGE FIELDS ---
+                'is_featured': campaign.is_featured,
+                
+                # --- DEBUGGING/INFO FIELDS (Optional) ---
+                'debug_recent_volume': float(volume),
+                'debug_funding_percent': float(percent * 100)
+            })
+
+        return jsonify(trending_campaigns), 200
+
+    except Exception as e:
+        # Log the error (in production you'd use a real logger)
+        print(f"Error in /trending: {str(e)}")
+        return jsonify({'error': 'Failed to retrieve trending campaigns'}), 500
+
+
+@bp.route('/my-campaigns', methods=['GET'])
+# ... (rest of your file)
 
 
 @bp.route('/my-campaigns', methods=['GET'])

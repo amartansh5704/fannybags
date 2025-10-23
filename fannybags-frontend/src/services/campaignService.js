@@ -78,6 +78,11 @@ uploadAudio: async (campaignId, formData) => {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
   return response.data;
+},
+
+getInvestments: async (campaignId) => {
+  const response = await api.get(`/campaigns/${campaignId}/investments`);
+  return response.data;
 }
 
 };

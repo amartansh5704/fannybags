@@ -34,7 +34,8 @@ export default function Navbar() {
                 >
                   Dashboard
                 </button>
-                {/* NEW: Show Wallet link only for investors */}
+                
+                {/* Show Wallet link only for investors */}
                 {user?.role === 'investor' && (
                   <button
                     onClick={() => navigate('/wallet')}
@@ -43,6 +44,17 @@ export default function Navbar() {
                     💰 Wallet
                   </button>
                 )}
+                
+                {/* 🔥 NEW: Show My Profile link only for artists */}
+                {user?.role === 'artist' && (
+                  <button
+                    onClick={() => navigate(`/artist/${user.id}`)}
+                    className="text-gray-300 hover:text-white transition flex items-center gap-1"
+                  >
+                    👤 My Profile
+                  </button>
+                )}
+                
                 <button
                   onClick={handleLogout}
                   className="px-4 py-2 bg-fb-pink text-white rounded hover:opacity-90 transition"

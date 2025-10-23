@@ -10,6 +10,7 @@ import CampaignBrowse from './pages/CampaignBrowse';
 import CampaignDetail from './pages/CampaignDetail';
 import ArtistProfile from './pages/ArtistProfile';
 import WalletDashboard from './components/investor/WalletDashboard';  // NEW LINE
+import EditArtistProfile from './pages/EditArtistProfile'; // Add this line
 
 function App() {
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
@@ -30,6 +31,7 @@ function App() {
         <Route path="/campaign/:id" element={<CampaignDetail />} />
         <Route path="/artist/:artistId" element={<ArtistProfile />} />
         <Route path="/wallet" element={<WalletDashboard />} />  {/* NEW LINE */}
+        <Route path="/artist/edit-profile" element={<EditArtistProfile />} /> {/* Add this line */}
       </Routes>
     </BrowserRouter>
   );

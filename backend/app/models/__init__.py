@@ -13,6 +13,16 @@ class User(db.Model):
     kyc_status = db.Column(db.String(20), default='pending')
     kyc_data = db.Column(db.JSON)
     wallet_details = db.Column(db.JSON)
+    # Artist profile fields
+    bio = db.Column(db.Text)
+    profile_image_url = db.Column(db.String(500))
+    spotify_url = db.Column(db.String(255))
+    instagram_url = db.Column(db.String(255))
+    youtube_url = db.Column(db.String(255))
+    twitter_url = db.Column(db.String(255))
+    location = db.Column(db.String(100))
+    genre = db.Column(db.String(50))
+    verified = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def __repr__(self):

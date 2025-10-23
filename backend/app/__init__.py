@@ -2,6 +2,7 @@ from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager
 import os
+from flask_cors import CORS
 
 db = SQLAlchemy()
 jwt = JWTManager()
@@ -42,7 +43,8 @@ def create_app():
     
     # Register blueprints (routes)
     with app.app_context():
-        from app.routes import auth, campaigns, investors, wallet
+        from app.routes import auth, campaigns, investors, wallet, artist
+        app.register_blueprint(artist.bp) 
         app.register_blueprint(wallet.bp)
         app.register_blueprint(auth.bp)
         app.register_blueprint(campaigns.bp)

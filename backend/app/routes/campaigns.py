@@ -142,6 +142,83 @@ def get_campaign(campaign_id):
         'end_date': campaign.end_date.isoformat() if campaign.end_date else None
     }), 200
 
+@bp.route('/<int:campaign_id>/investments', methods=['GET'])
+def get_campaign_investments(campaign_id):
+    """Get recent investments for a campaign with anonymized investor names"""
+    campaign = Campaign.query.get(campaign_id)
+    if not campaign:
+        return jsonify({'error': 'Campaign not found'}), 404
+    
+    # Get all investments (partitions) for this campaign
+    investments = Partition.query.filter_by(
+        campaign_id=campaign_id,
+        status='confirmed'
+    ).order_by(Partition.created_at.desc()).limit(10).all()
+    
+    # Get unique investor count
+    all_partitions = Partition.query.filter_by(campaign_id=campaign_id, status='confirmed').all()
+    unique_investors = len(set(p.buyer_id for p in all_partitions))
+    
+    # Format investment data with anonymized names
+    investment_list = []
+    for investment in investments:
+        investor = User.query.get(investment.buyer_id)
+        
+        # Anonymize name: "Rahul Kumar" → "Rahul K."
+        if investor:
+            name_parts = investor.name.split()
+            if len(name_parts) > 1:
+                display_name = f"{name_parts[0]} {name_parts[-1][0]}."
+            else:
+                display_name = name_parts[0]
+        else:
+            display_name = "Anonymous"
+        
+        investment_list.append({
+            'id': investment.id,
+            'investor_name': display_name,
+            'amount': investment.amount_paid,
+            'partitions': investment.partitions_bought,
+            'created_at': investment.created_at.isoformat(),
+            'time_ago': get_time_ago(investment.created_at)
+        })
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'investments': investment_list,
+            'total_investors': unique_investors,
+            'total_investments': len(all_partitions)
+        }
+    }), 200
+
+
+def get_time_ago(dt):
+    """Convert datetime to 'X hours ago' format"""
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    diff = now - dt
+    
+    seconds = diff.total_seconds()
+    
+    if seconds < 60:
+        return "just now"
+    elif seconds < 3600:
+        minutes = int(seconds / 60)
+        return f"{minutes} minute{'s' if minutes != 1 else ''} ago"
+    elif seconds < 86400:
+        hours = int(seconds / 3600)
+        return f"{hours} hour{'s' if hours != 1 else ''} ago"
+    elif seconds < 604800:
+        days = int(seconds / 86400)
+        return f"{days} day{'s' if days != 1 else ''} ago"
+    elif seconds < 2592000:
+        weeks = int(seconds / 604800)
+        return f"{weeks} week{'s' if weeks != 1 else ''} ago"
+    else:
+        months = int(seconds / 2592000)
+        return f"{months} month{'s' if months != 1 else ''} ago"
+
 @bp.route('/<int:campaign_id>/publish', methods=['POST'])
 @jwt_required()
 def publish_campaign(campaign_id):

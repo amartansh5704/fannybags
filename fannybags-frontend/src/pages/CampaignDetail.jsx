@@ -4,6 +4,7 @@ import { campaignService } from '../services/campaignService';
 import { useAuthStore } from '../store/authStore';
 import InvestmentForm from '../components/campaigns/InvestmentForm';
 import AIPredictor from '../components/campaigns/AIPredictor';
+import InvestmentHistory from '../components/campaigns/InvestmentHistory';
 
 export default function CampaignDetail() {
   const { id } = useParams();
@@ -280,6 +281,11 @@ export default function CampaignDetail() {
             </div>
           </div>
         )}
+        {/* Investment History */}
+<div className="mt-10">
+  <InvestmentHistory campaignId={Number(id)} />
+</div>
+
 
         {/* AI Revenue Predictor */}
         <div className="mt-10">

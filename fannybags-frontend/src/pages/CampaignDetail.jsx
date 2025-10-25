@@ -7,6 +7,7 @@ import AIPredictor from '../components/campaigns/AIPredictor';
 import InvestmentHistory from '../components/campaigns/InvestmentHistory';
 import { IoShareSocial } from 'react-icons/io5'; // <-- ADDED
 import ShareModal from '../components/common/ShareModal'; // <-- ADDED
+import CommentSection from '../components/campaigns/CommentSection';
 
 
 export default function CampaignDetail() {
@@ -316,7 +317,11 @@ export default function CampaignDetail() {
           />
         )}
         {/* --- END OF ADDITION --- */}
-        
+        {/* Comments Section */}
+        <div className="mt-12">
+        <CommentSection campaignId={campaign.id} />
+      </div>
+              
       </div>
     </div>
   );

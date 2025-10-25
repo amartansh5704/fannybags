@@ -7,6 +7,7 @@ import HoldingsCard from '../components/investor/HoldingsCard';
 import PortfolioSummary from '../components/investor/PortfolioSummary';
 import EarningsCard from '../components/investor/EarningsCard';
 import PayoutHistory from '../components/investor/PayoutHistory';
+import WalletDashboard from '../components/investor/WalletDashboard';
 import CreateCampaignForm from '../components/artist/CreateCampaignForm';
 import CampaignStats from '../components/artist/CampaignStats';
 import RevenueUpload from '../components/artist/RevenueUpload';
@@ -14,18 +15,21 @@ import CampaignMetrics from '../components/artist/CampaignMetrics';
 import ProgressChart from '../components/artist/ProgressChart';
 import RevenueChart from '../components/artist/RevenueChart';
 import CampaignWizard from '../components/artist/CampaignWizard';
+import { showToast } from '../utils/animations'; // 🔥 ADDED
+import GlassCard from '../components/reactbits/components/GlassCard';
+import FadeContent from '../components/reactbits/animations/FadeContent';
+import PortfolioBento from '../components/investor/PortfolioBento';
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
   const [role, setRole] = useState('');
   const [holdings, setHoldings] = useState([]);
-  // 🔥 REMOVED: totalExpected (no longer needed)
   const [campaigns, setCampaigns] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
   
-  // 🔥 NEW: Portfolio and wallet data from complete endpoint
   const [portfolioData, setPortfolioData] = useState(null);
   const [walletData, setWalletData] = useState(null);
 
@@ -37,7 +41,6 @@ export default function Dashboard() {
     setRole(user?.role || '');
   }, [isAuthenticated, user, navigate]);
 
-  // 🔥 UPDATED: Fetch complete portfolio data in one call
   useEffect(() => {
     if (!isAuthenticated || user?.role !== 'investor') return;
     
@@ -45,11 +48,9 @@ export default function Dashboard() {
       try {
         console.log('Dashboard: Fetching complete portfolio for user:', user.id);
         
-        // Call the complete portfolio endpoint
         const portfolioResponse = await investorService.getPortfolio(user.id);
         console.log('Complete portfolio response:', portfolioResponse);
         
-        // Extract and store wallet data
         setWalletData(portfolioResponse.wallet || {
           balance: 0,
           total_deposited: 0,
@@ -57,7 +58,6 @@ export default function Dashboard() {
           total_earnings: 0
         });
         
-        // Extract and store portfolio summary data
         setPortfolioData(portfolioResponse.portfolio || {
           total_invested: 0,
           total_earnings: 0,
@@ -66,16 +66,15 @@ export default function Dashboard() {
           expected_returns_3m: 0
         });
         
-        // Extract holdings (with more details from portfolio endpoint)
         setHoldings(portfolioResponse.holdings || []);
-        
-        // Extract transactions
         setTransactions(portfolioResponse.recent_transactions || []);
         
         console.log('Dashboard: All portfolio data loaded successfully');
       } catch (err) {
         console.error('Dashboard: Error fetching portfolio:', err);
-        // Set safe defaults to prevent crashes
+        // 🔥 ADDED: Show error toast
+        showToast.error('Failed to load portfolio data');
+        
         setWalletData({
           balance: 0,
           total_deposited: 0,
@@ -103,7 +102,6 @@ export default function Dashboard() {
       try {
         const artistCampaigns = await campaignService.getMyArtistCampaigns();
         
-        // Fetch actual revenue for each campaign
         const campaignsWithRevenue = await Promise.all(
           artistCampaigns.map(async (campaign) => {
             try {
@@ -125,6 +123,8 @@ export default function Dashboard() {
         setCampaigns(campaignsWithRevenue);
       } catch (err) {
         console.error(err);
+        // 🔥 ADDED: Show error toast
+        showToast.error('Failed to load campaigns');
       }
     };
     loadCampaigns();
@@ -134,7 +134,6 @@ export default function Dashboard() {
     try {
       const artistCampaigns = await campaignService.getMyArtistCampaigns();
       
-      // Fetch actual revenue for each campaign
       const campaignsWithRevenue = await Promise.all(
         artistCampaigns.map(async (campaign) => {
           try {
@@ -156,6 +155,8 @@ export default function Dashboard() {
       setCampaigns(campaignsWithRevenue);
     } catch (err) {
       console.error(err);
+      // 🔥 ADDED: Show error toast
+      showToast.error('Failed to refresh campaigns');
     }
   };
 
@@ -176,49 +177,88 @@ export default function Dashboard() {
 
         {role === 'investor' && (
           <div className="mb-10">
-            <h2 className="text-2xl font-bold mb-6">Your Portfolio & Earnings</h2>
-            {holdings.length === 0 ? (
-              <div className="bg-fb-surface p-8 rounded-lg text-center">
-                <p className="text-gray-400 mb-6">No investments yet</p>
-                <button onClick={() => navigate('/campaigns')} className="px-6 py-2 bg-fb-green text-white rounded hover:opacity-90">
-                  Explore Campaigns
-                </button>
-              </div>
-            ) : (
+            <div className="flex gap-4 mb-6 border-b border-gray-700">
+              <button
+                onClick={() => setActiveTab('overview')}
+                className={`px-6 py-3 font-semibold transition-all ${
+                  activeTab === 'overview'
+                    ? 'text-fb-pink border-b-2 border-fb-pink'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                📊 Portfolio Overview
+              </button>
+              <button
+                onClick={() => setActiveTab('wallet')}
+                className={`px-6 py-3 font-semibold transition-all ${
+                  activeTab === 'wallet'
+                    ? 'text-fb-pink border-b-2 border-fb-pink'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                💰 Wallet
+              </button>
+            </div>
+
+            {activeTab === 'overview' && (
               <>
-                {/* 🔥 UPDATED: Pass portfolio and wallet props */}
-                <PortfolioSummary portfolio={portfolioData} wallet={walletData} />
-                
-                <h3 className="text-xl font-bold mb-6 mt-10">Your Earnings</h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-                  {holdings.map((holding) => {
-                    // Calculate earnings from transactions for this specific campaign
-                    const campaignEarnings = transactions
-                      .filter(t => t.transaction_type === 'revenue_share' || t.transaction_type === 'earning')
-                      .filter(t => t.description && t.description.includes(holding.campaign_title))
-                      .reduce((sum, t) => sum + t.amount, 0);
+                <h2 className="text-2xl font-bold mb-6">Your Portfolio & Earnings</h2>
+                 {/* 🔥 NEW: Magic Bento Grid */}
+    {holdings.length > 0 && (
+      <div className="mb-10">
+        <PortfolioBento 
+          portfolio={portfolioData} 
+          holdings={holdings}
+          walletData={walletData}
+        />
+      </div>
+    )}
+                {holdings.length === 0 ? (
+                  <div className="bg-fb-surface p-8 rounded-lg text-center">
+                    <p className="text-gray-400 mb-6">No investments yet</p>
+                    <button onClick={() => navigate('/campaigns')} className="px-6 py-2 bg-fb-green text-white rounded hover:opacity-90">
+                      Explore Campaigns
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <PortfolioSummary portfolio={portfolioData} wallet={walletData} />
                     
-                    console.log(`Campaign "${holding.campaign_title}" earnings:`, campaignEarnings);
-                    
-                    return (
-                      <EarningsCard 
-                        key={holding.holding_id}
-                        holding={holding}
-                        actualEarnings={holding.actual_earnings || campaignEarnings}
-                      />
-                    );
-                  })}
-                </div>
+                    <h3 className="text-xl font-bold mb-6 mt-10">Your Earnings</h3>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                      {holdings.map((holding) => {
+                        const campaignEarnings = transactions
+                          .filter(t => t.transaction_type === 'revenue_share' || t.transaction_type === 'earning')
+                          .filter(t => t.description && t.description.includes(holding.campaign_title))
+                          .reduce((sum, t) => sum + t.amount, 0);
+                        
+                        console.log(`Campaign "${holding.campaign_title}" earnings:`, campaignEarnings);
+                        
+                        return (
+                          <EarningsCard 
+                            key={holding.holding_id}
+                            holding={holding}
+                            actualEarnings={holding.actual_earnings || campaignEarnings}
+                          />
+                        );
+                      })}
+                    </div>
 
-                <h3 className="text-xl font-bold mb-6">Your Investments</h3>
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-                  {holdings.map((holding) => (
-                    <HoldingsCard key={holding.holding_id} holding={holding} />
-                  ))}
-                </div>
+                    <h3 className="text-xl font-bold mb-6">Your Investments</h3>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                      {holdings.map((holding) => (
+                        <HoldingsCard key={holding.holding_id} holding={holding} />
+                      ))}
+                    </div>
 
-                <PayoutHistory transactions={transactions} />
+                    <PayoutHistory transactions={transactions} />
+                  </>
+                )}
               </>
+            )}
+
+            {activeTab === 'wallet' && (
+              <WalletDashboard />
             )}
           </div>
         )}
@@ -226,13 +266,13 @@ export default function Dashboard() {
         {role === 'artist' && (
           <div className="mb-10">
             {showCreateForm ? (
-  <>
-    <button onClick={() => { setShowCreateForm(false); refreshCampaigns(); }} className="mb-6 text-fb-pink hover:underline">
-      ← Back
-    </button>
-    <CampaignWizard onSuccess={() => { setShowCreateForm(false); refreshCampaigns(); }} />
-  </>
-) : (
+              <>
+                <button onClick={() => { setShowCreateForm(false); refreshCampaigns(); }} className="mb-6 text-fb-pink hover:underline">
+                  ← Back
+                </button>
+                <CampaignWizard onSuccess={() => { setShowCreateForm(false); refreshCampaigns(); }} />
+              </>
+            ) : (
               <>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold">Your Campaigns</h2>
@@ -250,7 +290,6 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <>
-                    {/* Analytics Dashboard */}
                     <div className="mb-8">
                       <h3 className="text-xl font-bold mb-6">📊 Campaign Analytics Dashboard</h3>
                       {campaigns.map((campaign) => (
@@ -265,7 +304,6 @@ export default function Dashboard() {
                       ))}
                     </div>
 
-                    {/* Existing Campaign Management */}
                     <h3 className="text-xl font-bold mb-6">🎛️ Campaign Management</h3>
                     <div className="grid md:grid-cols-2 gap-6">
                       {campaigns.map((campaign) => (
@@ -289,4 +327,4 @@ export default function Dashboard() {
       </div>
     </div>
   );
-}
+} 

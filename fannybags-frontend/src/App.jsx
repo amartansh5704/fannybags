@@ -9,8 +9,10 @@ import Dashboard from './pages/Dashboard';
 import CampaignBrowse from './pages/CampaignBrowse';
 import CampaignDetail from './pages/CampaignDetail';
 import ArtistProfile from './pages/ArtistProfile';
-import WalletDashboard from './components/investor/WalletDashboard';  // NEW LINE
-import EditArtistProfile from './pages/EditArtistProfile'; // Add this line
+import WalletDashboard from './components/investor/WalletDashboard';
+import EditArtistProfile from './pages/EditArtistProfile';
+import { Toaster } from 'react-hot-toast';
+import GlobalClickSpark from './components/reactbits/animations/GlobalClickSpark';
 
 function App() {
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
@@ -21,7 +23,16 @@ function App() {
 
   return (
     <BrowserRouter>
+    
+      <GlobalClickSpark 
+        sparkColor="#12CE6A" 
+        sparkRadius={35} 
+        sparkCount={12} 
+        duration={700}
+        enabled={true}
+      />
       <Navbar />
+      <Toaster position="top-right" reverseOrder={false} />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
@@ -30,8 +41,8 @@ function App() {
         <Route path="/campaigns" element={<CampaignBrowse />} />
         <Route path="/campaign/:id" element={<CampaignDetail />} />
         <Route path="/artist/:artistId" element={<ArtistProfile />} />
-        <Route path="/wallet" element={<WalletDashboard />} />  {/* NEW LINE */}
-        <Route path="/artist/edit-profile" element={<EditArtistProfile />} /> {/* Add this line */}
+        <Route path="/wallet" element={<WalletDashboard />} />
+        <Route path="/artist/edit-profile" element={<EditArtistProfile />} />
       </Routes>
     </BrowserRouter>
   );

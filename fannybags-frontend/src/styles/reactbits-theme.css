@@ -1,0 +1,115 @@
+/* FannyBags ReactBits Theme */
+:root {
+  /* Brand Colors */
+  --fb-purple: #50207A;
+  --fb-pink: #FF48B9;
+  --fb-green: #12CE6A;
+  
+  /* Dark Theme */
+  --fb-dark: #0A0A0A;
+  --fb-surface: #1A1A1A;
+  --fb-border: #2A2A2A;
+  
+  /* Gradients */
+  --fb-gradient-primary: linear-gradient(135deg, #50207A 0%, #FF48B9 100%);
+  --fb-gradient-secondary: linear-gradient(135deg, #FF48B9 0%, #12CE6A 100%);
+  --fb-gradient-tertiary: linear-gradient(135deg, #50207A 0%, #12CE6A 100%);
+  
+  /* Shadows */
+  --fb-shadow-sm: 0 2px 8px rgba(80, 32, 122, 0.1);
+  --fb-shadow-md: 0 4px 16px rgba(255, 72, 185, 0.2);
+  --fb-shadow-lg: 0 8px 32px rgba(18, 206, 106, 0.15);
+  
+  /* Animation Timings */
+  --fb-transition-fast: 0.15s;
+  --fb-transition-base: 0.3s;
+  --fb-transition-slow: 0.5s;
+}
+
+/* Global Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Utility Classes */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+/* Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--fb-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--fb-purple);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fb-pink);
+}

@@ -1,23 +1,16 @@
 import { useEffect, useState } from 'react';
-// We no longer import useNavigate here, it's in the card
 import { campaignService } from '../services/campaignService';
-// We no longer import ProgressBar or StatusBadge
 import FilterPanel from '../components/common/FilterPanel';
-// --- NEW IMPORTS ---
-import CampaignCard from '../components/campaigns/CampaignCard'; // Import the new card
+import CampaignCard from '../components/campaigns/CampaignCard';
+import AnimatedList from '../components/reactbits/components/AnimatedList';
 
 export default function CampaignBrowse() {
   const [campaigns, setCampaigns] = useState([]);
   const [filteredCampaigns, setFilteredCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  // const navigate = useNavigate(); // No longer needed here
 
-  // getCampaignStatus is now imported from utils!
-
-  // Function to apply filters (remains the same)
   const applyFilters = (campaigns, filters) => {
-    // ... (Your existing filter logic is fine, no changes needed)
     let filtered = [...campaigns];
 
     // Search filter
@@ -79,15 +72,12 @@ export default function CampaignBrowse() {
     return filtered;
   };
 
-  // Handle filter changes (remains the same)
   const handleFiltersChange = (filters) => {
-    // ... (no changes needed)
     const filtered = applyFilters(campaigns, filters);
     setFilteredCampaigns(filtered);
   };
 
   useEffect(() => {
-    // ... (no changes needed)
     const fetchCampaigns = async () => {
       try {
         setLoading(true);
@@ -105,7 +95,6 @@ export default function CampaignBrowse() {
   }, []);
 
   if (loading) {
-    // ... (no changes needed)
     return (
       <div className="min-h-screen bg-fb-dark text-white pt-20 flex items-center justify-center">
         <p>Loading campaigns...</p>
@@ -114,7 +103,6 @@ export default function CampaignBrowse() {
   }
 
   if (error) {
-    // ... (no changes needed)
     return (
       <div className="min-h-screen bg-fb-dark text-white pt-20 flex items-center justify-center">
         <p className="text-red-400">{error}</p>
@@ -141,8 +129,7 @@ export default function CampaignBrowse() {
 
         {filteredCampaigns.length === 0 ? (
           <div className="text-center py-20">
-             {/* ... (no changes needed) */}
-             <p className="text-gray-400 mb-6">No campaigns match your filters</p>
+            <p className="text-gray-400 mb-6">No campaigns match your filters</p>
             <button
               onClick={() => window.location.reload()}
               className="px-6 py-2 bg-fb-pink text-white rounded hover:opacity-90 transition"
@@ -151,18 +138,14 @@ export default function CampaignBrowse() {
             </button>
           </div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* --- THIS IS THE ONLY PART THAT CHANGES --- */}
+          <AnimatedList staggerDelay={0.1} className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCampaigns.map((campaign) => (
               <CampaignCard 
                 key={campaign.id} 
                 campaign={campaign} 
-                // We don't pass badge props here,
-                // so they will just be normal cards.
               />
             ))}
-            {/* --- END OF CHANGED SECTION --- */}
-          </div>
+          </AnimatedList>
         )}
       </div>
     </div>

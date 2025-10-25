@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import walletService from '../../services/walletService';
+import DepositModal from '../wallet/DepositModal'; // 🔥 NEW IMPORT
+import { showToast } from '../../utils/animations';
+import CountUp from '../reactbits/text/CountUp';
 
 const WalletDashboard = () => {
   const [wallet, setWallet] = useState(null);
@@ -32,28 +35,22 @@ const WalletDashboard = () => {
     }
   };
 
-  const handleDeposit = async (e) => {
-    e.preventDefault();
-    if (!amount || parseFloat(amount) <= 0) {
-      setError('Please enter a valid amount');
-      return;
-    }
-    try {
-      setProcessing(true);
-      setError('');
-      const response = await walletService.deposit(amount);
-      if (response.success) {
-        setSuccess(`Successfully deposited ₹${amount}`);
-        setAmount('');
-        setShowDepositModal(false);
-        fetchWalletData();
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Deposit failed');
-    } finally {
-      setProcessing(false);
-    }
-  };
+  // 🔥 NEW: Handle successful deposit from DepositModal
+  const handleDepositSuccess = (data) => {
+  // 🔥 NEW: Show toast notification (top-right, green, beautiful)
+  showToast.success(`🎉 Successfully deposited ₹${data.amount.toLocaleString()}! New balance: ₹${data.new_balance.toLocaleString()}`);
+  
+  // Keep the old banner too (for now, we can remove it later)
+  setSuccess(`Successfully deposited ₹${data.amount.toLocaleString()}! New balance: ₹${data.new_balance.toLocaleString()}`);
+  
+  // Refresh wallet data
+  fetchWalletData();
+  
+  // Clear success message after 5 seconds
+  setTimeout(() => setSuccess(''), 5000);
+};
+
+  // 🔥 REMOVED: Old handleDeposit function (now using DepositModal)
 
   const handleWithdraw = async (e) => {
     e.preventDefault();
@@ -101,7 +98,15 @@ const WalletDashboard = () => {
 
       <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-8 text-white mb-8 shadow-xl">
         <h2 className="text-lg font-medium opacity-90 mb-2">Total Balance</h2>
-        <div className="text-5xl font-bold mb-6">₹{wallet?.balance?.toLocaleString() || '0'}</div>
+        <div className="text-5xl font-bold mb-6">
+  ₹<CountUp 
+    from={0} 
+    to={wallet?.balance || 0} 
+    duration={1.5} 
+    separator="," 
+    className="inline-block"
+  />
+</div>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div>
@@ -162,26 +167,14 @@ const WalletDashboard = () => {
         )}
       </div>
 
-      {showDepositModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full">
-            <h3 className="text-2xl font-bold mb-6">Deposit Money</h3>
-            <form onSubmit={handleDeposit}>
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-2">Amount (₹)</label>
-                <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="Enter amount" required />
-              </div>
-              <div className="flex gap-4">
-                <button type="button" onClick={() => { setShowDepositModal(false); setAmount(''); }} className="flex-1 px-6 py-3 border rounded-lg hover:bg-gray-50">Cancel</button>
-                <button type="submit" disabled={processing} className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                  {processing ? 'Processing...' : 'Deposit'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* 🔥 NEW: Use DepositModal instead of simple form */}
+      <DepositModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        onSuccess={handleDepositSuccess}
+      />
 
+      {/* Withdraw Modal - Keep as is */}
       {showWithdrawModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-8 max-w-md w-full">

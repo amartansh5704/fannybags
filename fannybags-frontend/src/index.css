@@ -28,3 +28,11 @@ html {
     transform: translateY(0);
   }
 }
+
+:root {
+  --fb-purple: #50207A;
+}
+
+.text-fb-purple {
+  color: #50207A;
+}

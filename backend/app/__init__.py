@@ -47,12 +47,14 @@ def create_app():
     
     # Register blueprints (routes)
     with app.app_context():
-        from app.routes import auth, campaigns, investors, wallet, artist
+        from app.routes import auth, campaigns, investors, wallet, artist, comment, payment
         app.register_blueprint(artist.bp) 
         app.register_blueprint(wallet.bp)
         app.register_blueprint(auth.bp)
         app.register_blueprint(campaigns.bp)
         app.register_blueprint(investors.bp)
+        app.register_blueprint(comment.bp)
+        app.register_blueprint(payment.bp)
         
         # Create tables - This is fine for development, but migrations
         # will handle this in production.

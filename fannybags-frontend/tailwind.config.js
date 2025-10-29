@@ -10,6 +10,7 @@ export default {
         'fb-purple': '#50207A',
         'fb-pink': '#FF48B9',
         'fb-green': '#12CE6A',
+        'fb-light-pink': '#F9C8E8',
         'fb-dark': '#0a0a0a',
         'fb-surface': '#1a1a1a',
       },

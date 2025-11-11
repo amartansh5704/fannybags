@@ -36,3 +36,23 @@ html {
 .text-fb-purple {
   color: #50207A;
 }
+
+/* ========== GLOBAL SECTION SPACING ========== */
+section {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Centered container inside sections */
+section > * {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+

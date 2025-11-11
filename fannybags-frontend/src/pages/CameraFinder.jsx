@@ -44,13 +44,18 @@ export default function CameraFinder() {
 
     // Load GLB model
     const loader = new GLTFLoader();
-    const modelPath = '/models/scene.gltf';
+    const modelPath = '/models/musicstudio.glb';
 
     console.log('Loading model from:', modelPath);
 
     loader.load(
       modelPath,
       (gltf) => {
+        if (!gltf.scene) {
+          console.error('❌ No scene in GLTF');
+          return;
+        }
+
         const model = gltf.scene;
         scene.add(model);
 
@@ -59,16 +64,22 @@ export default function CameraFinder() {
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
 
+        console.log('✅ Model loaded successfully');
+        console.log('Model size:', size);
+        console.log('Center:', center);
+
         camera.position.copy(center);
         camera.position.z += size.z * 0.8;
         controls.target.copy(center);
         controls.update();
-
-        console.log('✅ Model loaded with textures');
       },
-      undefined,
+      (progress) => {
+        console.log('Loading progress:', Math.round((progress.loaded / progress.total) * 100) + '%');
+      },
       (error) => {
-        console.error('❌ Failed to load model:', error);
+        console.error('❌ Failed to load model:');
+        console.error('Error:', error);
+        console.error('Check if file exists at:', modelPath);
       }
     );
 
@@ -139,7 +150,7 @@ export default function CameraFinder() {
         <h2 style={{ marginTop: 0 }}>📷 Camera Position Finder</h2>
 
         <p style={{ marginBottom: '10px', color: '#12CE6A', fontWeight: 'bold' }}>
-          ✅ Loading: scene.gltf
+          ✅ Loading: music_studio_at_home.glb
         </p>
 
         <p style={{ marginBottom: '10px', color: '#999' }}>

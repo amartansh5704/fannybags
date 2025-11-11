@@ -17,6 +17,7 @@ import './styles/animations.css';
 import CameraFinder from './pages/CameraFinder';
 import LandingEditor from './pages/LandingEditor';
 import ModelViewer from './pages/ModelViewer';
+import SettingsEditor from './pages/SettingsEditor';
 
 function App() {
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
@@ -50,6 +51,7 @@ function App() {
         <Route path="/camera-finder" element={<CameraFinder />} />
         <Route path="/editor" element={<LandingEditor />} />
         <Route path="/model-viewer" element={<ModelViewer />} />
+        <Route path="/settings-editor" element={<SettingsEditor />} />
       </Routes>
     </BrowserRouter>
   );

@@ -55,4 +55,8 @@ section > * {
   text-align: center;
 }
 
+.vanta-canvas {
+  pointer-events: none !important;
+}
+
 

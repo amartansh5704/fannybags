@@ -4,26 +4,25 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { motion as Motion } from "framer-motion";
 import { campaignService } from "../../services/campaignService";
 import CampaignCard from "../campaigns/CampaignCard";
+import LightRays from "../reactbits/backgrounds/LightRays";
 
 gsap.registerPlugin(ScrollTrigger);
-
-const bgImage =
-  "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=1920&q=80";
 
 export default function TrendingCampaignsSection() {
   const sectionRef = useRef(null);
   const cardsRef = useRef([]);
+  const raysRef = useRef(null);
   const [campaigns, setCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Fetch trending campaigns from API
+  // Fetch trending
   useEffect(() => {
     const fetchTrending = async () => {
       try {
         const data = await campaignService.getTrendingCampaigns();
         setCampaigns(data || []);
       } catch (err) {
-        console.error("Failed to fetch trending campaigns:", err);
+        console.error("Failed to fetch trending:", err);
       } finally {
         setLoading(false);
       }
@@ -31,31 +30,86 @@ export default function TrendingCampaignsSection() {
     fetchTrending();
   }, []);
 
-  // ✅ Scroll-based reveal animation (1→2→3 cards)
+  // Light Rays scroll animations
   useEffect(() => {
-    if (!sectionRef.current || campaigns.length === 0) return;
+    if (!sectionRef.current) return;
 
     const section = sectionRef.current;
-    const tl = gsap.timeline({
+    const raysEl = raysRef.current;
+
+    let tl = gsap.timeline({
       scrollTrigger: {
         trigger: section,
         start: "top top",
-        end: "+=3000", // controls total scroll range
+        end: "+=3000",
         scrub: true,
         pin: true,
       },
     });
 
-    // 1️⃣ First card only visible
+    tl.to(
+      raysEl,
+      {
+        "--rays-opacity": 1.2,
+        "--rays-length": 1.6,
+        "--rays-spread": 0.95,
+        duration: 1,
+        ease: "power2.inOut",
+      },
+      0
+    );
+
+    tl.to(
+      raysEl,
+      {
+        "--rays-color": "#7b5bff",
+        duration: 1.2,
+        ease: "sine.inOut",
+      },
+      0.5
+    );
+
+    tl.to(
+      raysEl,
+      {
+        "--rays-color": "#4beeff",
+        "--rays-length": 1.2,
+        duration: 1.2,
+        ease: "power3.out",
+      },
+      2.0
+    );
+
+    return () => {
+      ScrollTrigger.getAll().forEach((t) => t.kill());
+      tl.kill();
+    };
+  }, []);
+
+  // Card Animations + subtle light reaction
+  useEffect(() => {
+    if (!sectionRef.current || campaigns.length === 0) return;
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: sectionRef.current,
+        start: "top top",
+        end: "+=3000",
+        scrub: true,
+      },
+    });
+
+    // Card 1
     tl.to(cardsRef.current[0], {
       opacity: 1,
       x: 0,
       scale: 1,
       duration: 0.5,
       ease: "power2.out",
+      onUpdate: () => pulseLight(raysRef.current, 0.12),
     });
 
-    // 2️⃣ Second card slides in next
+    // Card 2
     if (cardsRef.current[1]) {
       tl.to(
         cardsRef.current[1],
@@ -65,12 +119,13 @@ export default function TrendingCampaignsSection() {
           scale: 1,
           duration: 0.5,
           ease: "power2.out",
+          onUpdate: () => pulseLight(raysRef.current, 0.18),
         },
-        "+=0.5"
+        "+=0.4"
       );
     }
 
-    // 3️⃣ Third card slides in
+    // Card 3
     if (cardsRef.current[2]) {
       tl.to(
         cardsRef.current[2],
@@ -80,35 +135,62 @@ export default function TrendingCampaignsSection() {
           scale: 1,
           duration: 0.5,
           ease: "power2.out",
+          onUpdate: () => pulseLight(raysRef.current, 0.22),
         },
-        "+=0.5"
+        "+=0.4"
       );
     }
 
-    // Fade all together before exit
-    tl.to(cardsRef.current, {
-      opacity: 0.8,
-      scale: 0.95,
-      duration: 0.8,
-      ease: "power1.inOut",
-    });
-
-    return () => {
-      ScrollTrigger.getAll().forEach((t) => t.kill());
-      tl.kill();
-    };
+    return () => tl.kill();
   }, [campaigns]);
+
+  function pulseLight(el, amt = 0.15) {
+    if (!el) return;
+    gsap.to(el, {
+      "--rays-opacity": 1 + amt,
+      "--rays-length": 1.2 + amt,
+      duration: 0.25,
+      ease: "power1.out",
+      yoyo: true,
+      repeat: 1,
+    });
+  }
 
   return (
     <section
       id="trending"
       ref={sectionRef}
-      className="relative h-screen overflow-hidden bg-cover bg-center flex flex-col items-center justify-center"
-      style={{ backgroundImage: `url(${bgImage})` }}
+      className="relative h-screen overflow-hidden flex flex-col items-center justify-center"
+      style={{ backgroundColor: "#000000" }} // ← PURE BLACK BACKGROUND
     >
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/70" />
+      {/* Light Rays on Black */}
+      <div
+        ref={raysRef}
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          "--rays-color": "#6f5aff",
+          "--rays-opacity": 1,
+          "--rays-spread": 0.8,
+          "--rays-length": 1.2,
+        }}
+      >
+        <LightRays
+          raysOrigin="top-center"
+          raysColor="var(--rays-color)"
+          raysSpeed={1.8}
+          lightSpread={0.8}
+          rayLength={1.2}
+          followMouse={true}
+          mouseInfluence={0.15}
+          noiseAmount={0.12}
+          distortion={0.04}
+        />
+      </div>
 
+      {/* Slight overlay for depth */}
+      <div className="absolute inset-0 bg-black/40" />
+
+      {/* Content */}
       <div className="relative z-10 max-w-7xl mx-auto text-center px-6">
         <Motion.h2
           initial={{ opacity: 0, y: 30 }}
@@ -117,7 +199,7 @@ export default function TrendingCampaignsSection() {
           transition={{ duration: 0.8 }}
           className="text-5xl md:text-6xl font-bold text-white mb-10"
         >
-          Trending <span className="text-green-400">Campaigns</span>
+          Trending <span className="text-purple-400">Campaigns</span>
         </Motion.h2>
 
         <p className="text-xl text-gray-300 mb-16">
@@ -130,7 +212,6 @@ export default function TrendingCampaignsSection() {
           </div>
         )}
 
-        {/* Cards container */}
         {!loading && campaigns.length > 0 && (
           <div className="relative flex justify-center items-center gap-8 h-[65vh] w-full">
             {campaigns.slice(0, 3).map((campaign, i) => (
@@ -138,9 +219,7 @@ export default function TrendingCampaignsSection() {
                 key={campaign.id}
                 ref={(el) => (cardsRef.current[i] = el)}
                 className="absolute w-[70vw] md:w-[45vw] lg:w-[35vw] h-full bg-white/5 backdrop-blur-lg rounded-3xl p-4 border border-white/10 shadow-2xl overflow-hidden opacity-0 scale-0.9 translate-x-[200px] flex justify-center items-center"
-                style={{
-                  transform: `translateX(${i * 200}px)`,
-                }}
+                style={{ transform: `translateX(${i * 200}px)` }}
               >
                 <CampaignCard campaign={campaign} isTrending={true} />
               </div>

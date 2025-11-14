@@ -1,72 +1,115 @@
-import { useEffect, useRef } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { motion as Motion } from 'framer-motion';
+import { useEffect, useRef } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-// Temporary placeholder background (replace later)
-const heroBg =
-  'https://images.unsplash.com/photo-1507874457470-272b3c8d8ee2?auto=format&fit=crop&w=1920&q=80';
-// You can replace with your own later:
-// import heroBg from '../../assets/hero-bg.jpg';
-
 export default function HeroSection() {
   const heroRef = useRef(null);
-  const titleRef = useRef(null);
-  const subtitleRef = useRef(null);
+  const vantaRef = useRef(null);
+  const vantaEffect = useRef(null);
 
   useEffect(() => {
+    if (!window.VANTA || !window.VANTA.BIRDS || !vantaRef.current) {
+      console.warn("⚠️ VANTA or THREE not yet loaded");
+      return;
+    }
+
+    // =====================================================
+    // ⭐ INITIAL BIRD SETTINGS (TUNE THESE)
+    // =====================================================
+    vantaEffect.current = window.VANTA.BIRDS({
+      el: vantaRef.current,
+      mouseControls: true,
+      touchControls: true,
+      gyroControls: false,
+      minHeight: 200.0,
+      minWidth: 200.0,
+      scale: 1.0,
+      scaleMobile: 1.0,
+      colorMode: "lerpGradient",
+      backgroundAlpha: 0.0,
+
+      // ⭐ COLORS
+      color1: 0xff3cac,
+      color2: 0x2b86c5,
+
+      // ⭐ BIRD SIZE (smaller = 0.6–1.0)
+      birdSize: 1.1,
+
+      // ⭐ HOW MANY BIRDS
+      quantity: 4,
+
+      // ⭐ BASE SPEED BEFORE SCROLL
+      speedLimit: 4.0,
+    });
+
+    console.log("✅ Vanta Birds initialized successfully");
+
+    // =====================================================
+    // ⭐ SCROLL-REACTIVE "FLY TOWARD YOU" EFFECT
+    // =====================================================
     const ctx = gsap.context(() => {
       gsap.to(heroRef.current, {
         scrollTrigger: {
           trigger: heroRef.current,
-          start: 'top top',
-          end: 'bottom top',
+          start: "top top",
+          end: "bottom top",
           scrub: true,
+
+          onUpdate: (self) => {
+            const p = self.progress;
+
+            // ⭐ SCROLL TUNING VALUES
+            vantaEffect.current?.setOptions({
+              speedLimit: 4 + p * 40,     // ⭐ Bird forward speed (increase 40 → 60 for CRAZY)
+              cohesion: 20 + p * 80,      // ⭐ Grouping strength
+              alignment: 20 + p * 80,     // ⭐ Alignment (faster forward push)
+              separation: 40 + p * 150,   // ⭐ Spread outward (stronger = more 3D)
+              birdSize: 0.8 - p * 0.4,    // ⭐ Shrink as they fly forward
+              quantity: 10 - p * 6,       // ⭐ Fade-out amount
+            });
+
+            // Fade the hero section itself
+            heroRef.current.style.opacity = String(1 - p * 0.5);
+          },
         },
-        opacity: 0.3,
-        scale: 1.1,
       });
     }, heroRef);
 
-    return () => ctx.revert();
+    // Cleanup
+    return () => {
+      ctx.revert();
+      vantaEffect.current?.destroy();
+      vantaEffect.current = null;
+    };
   }, []);
 
   return (
     <section
       ref={heroRef}
-      className="relative min-h-screen flex items-center justify-center overflow-hidden bg-cover bg-center"
-      style={{ backgroundImage: `url(${heroBg})` }}
+      id="hero"
+      className="relative min-h-screen flex items-center justify-center overflow-hidden"
     >
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-black/70" />
+      {/* 🕊️ Vanta Birds Background */}
+      <div
+        ref={vantaRef}
+        className="absolute inset-0 -z-10 pointer-events-none"
+      />
 
       {/* Content */}
       <div className="relative z-10 text-center px-6 max-w-4xl">
-        <Motion.h1
-          ref={titleRef}
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
-          className="text-6xl md:text-7xl font-bold text-white mb-6 leading-tight"
-        >
+        <h1 className="text-6xl md:text-7xl font-bold text-white mb-6 leading-tight">
           Invest in Music.
           <br />
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-green-400">
             Own the Vibe.
           </span>
-        </Motion.h1>
+        </h1>
 
-        <Motion.p
-          ref={subtitleRef}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1, delay: 0.2 }}
-          className="text-lg md:text-xl text-gray-300 mb-10"
-        >
+        <p className="text-lg md:text-xl text-gray-300 mb-10">
           Back your favorite artists. Earn royalties. Be part of the music revolution.
-        </Motion.p>
+        </p>
 
         <div className="flex flex-col sm:flex-row gap-6 justify-center">
           <a
@@ -85,20 +128,11 @@ export default function HeroSection() {
       </div>
 
       {/* Scroll indicator */}
-      <Motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 1 }}
-        className="absolute bottom-12 left-1/2 -translate-x-1/2"
-      >
+      <div className="absolute bottom-12 left-1/2 -translate-x-1/2">
         <div className="w-6 h-10 border-2 border-gray-400 rounded-full flex justify-center pt-2">
-          <Motion.div
-            animate={{ y: [0, 12, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className="w-1 h-3 bg-gray-400 rounded-full"
-          />
+          <div className="w-1 h-3 bg-gray-400 rounded-full animate-bounce" />
         </div>
-      </Motion.div>
+      </div>
     </section>
   );
 }

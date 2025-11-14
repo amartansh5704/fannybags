@@ -21,6 +21,13 @@ export default function Landing() {
       }
     }, 250);
 
+    ScrollTrigger.create({
+      trigger: "#how-it-works",
+      start: "top 80%",
+      snap: false
+    });
+
+
     return () => {
       clearTimeout(t);
       // remove any lingering triggers if component unmounts

@@ -14,10 +14,6 @@ import EditArtistProfile from './pages/EditArtistProfile';
 import { Toaster } from 'react-hot-toast';
 import GlobalClickSpark from './components/reactbits/animations/GlobalClickSpark';
 import './styles/animations.css';
-import CameraFinder from './pages/CameraFinder';
-import LandingEditor from './pages/LandingEditor';
-import ModelViewer from './pages/ModelViewer';
-import SettingsEditor from './pages/SettingsEditor';
 
 function App() {
   const initializeAuth = useAuthStore((state) => state.initializeAuth);
@@ -48,10 +44,6 @@ function App() {
         <Route path="/artist/:artistId" element={<ArtistProfile />} />
         <Route path="/wallet" element={<WalletDashboard />} />
         <Route path="/artist/edit-profile" element={<EditArtistProfile />} />
-        <Route path="/camera-finder" element={<CameraFinder />} />
-        <Route path="/editor" element={<LandingEditor />} />
-        <Route path="/model-viewer" element={<ModelViewer />} />
-        <Route path="/settings-editor" element={<SettingsEditor />} />
       </Routes>
     </BrowserRouter>
   );

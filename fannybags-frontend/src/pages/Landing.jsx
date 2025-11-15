@@ -3,6 +3,7 @@ import SmoothScroll from "../components/landing/SmoothScroll";
 import HeroSection from "../components/landing/HeroSection";
 import HowItWorksSection from "../components/landing/HowItWorksSection";
 import TrendingCampaignsSection from "../components/landing/TrendingCampaignsSection";
+import Footer from "../components/landing/Footer";
 import { useEffect } from "react";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { gsap } from "gsap";
@@ -26,7 +27,6 @@ export default function Landing() {
       start: "top 80%",
       snap: false
     });
-
 
     return () => {
       clearTimeout(t);
@@ -71,7 +71,11 @@ export default function Landing() {
             className="bg-transparent"
           />
 
-          {/* End of page — no footer or wallet CTA */}
+          
+          {/* === FOOTER === */}
+          <section id="footer" className="w-full">
+            <Footer />
+          </section>
         </div>
       </main>
     </SmoothScroll>

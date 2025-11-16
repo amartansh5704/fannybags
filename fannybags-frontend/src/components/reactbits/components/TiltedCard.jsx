@@ -1,132 +1,145 @@
-import { useRef, useState } from 'react';
-import { motion as Motion, useMotionValue, useSpring } from 'motion/react';
-import './TiltedCard.css';
+import React, { useRef, useEffect } from "react";
+import { motion as Motion, useMotionValue, useSpring } from "framer-motion";
+import "./TiltedCard.css";
 
-const springValues = {
-  damping: 30,
-  stiffness: 100,
-  mass: 2
-};
-
+/**
+ * TiltedCard - wrapper/component that adds full-card tilt, glow, spotlight and shimmer.
+ * Usage: <TiltedCard><CampaignCard ... /></TiltedCard>
+ *
+ * Props:
+ * - width / height: CSS values for wrapper sizing (defaults to 100% / auto)
+ * - rotateAmplitude: max degrees for rotation (default 10)
+ * - scaleOnHover: scale multiplier on hover (default 1.04)
+ * - softGlow: whether to show glow (default true)
+ * - shimmer: whether to show shimmer sweep (default true)
+ */
 export default function TiltedCard({
-  imageSrc,
-  altText = 'Tilted card image',
-  captionText = '',
-  containerHeight = '300px',
-  containerWidth = '100%',
-  imageHeight = '300px',
-  imageWidth = '300px',
-  scaleOnHover = 1.1,
-  rotateAmplitude = 14,
-  showMobileWarning = true,
-  showTooltip = true,
-  overlayContent = null,
-  displayOverlayContent = false
+  children,
+  width = "100%",
+  height = "auto",
+  rotateAmplitude = 10,
+  scaleOnHover = 1.04,
+  softGlow = true,
+  shimmer = true,
+  className = "",
 }) {
-  const ref = useRef(null);
+  const rootRef = useRef(null);
 
-  const x = useMotionValue();
-  const y = useMotionValue();
-  const rotateX = useSpring(useMotionValue(0), springValues);
-  const rotateY = useSpring(useMotionValue(0), springValues);
-  const scale = useSpring(1, springValues);
-  const opacity = useSpring(0);
-  const rotateFigcaption = useSpring(0, {
-    stiffness: 350,
-    damping: 30,
-    mass: 1
-  });
+  // raw motion values (not springs)
+  const mx = useMotionValue(0); // pointer x relative to element (px)
+  const my = useMotionValue(0); // pointer y relative
+  const rx = useMotionValue(0); // rotateX (deg)
+  const ry = useMotionValue(0); // rotateY (deg)
+  const s = useMotionValue(1);   // scale
 
-  const [lastY, setLastY] = useState(0);
+  // springed versions for smoother motion
+  const springOpts = { damping: 20, stiffness: 200 };
+  const sRx = useSpring(rx, springOpts);
+  const sRy = useSpring(ry, springOpts);
+  const sS = useSpring(s, springOpts);
+  const sMx = useSpring(mx, { damping: 30, stiffness: 300 });
+  const sMy = useSpring(my, { damping: 30, stiffness: 300 });
 
-  function handleMouse(e) {
-    if (!ref.current) return;
+  // small helper to detect touch devices (disable tilt)
+  const isTouch = typeof navigator !== "undefined" && ("maxTouchPoints" in navigator) && navigator.maxTouchPoints > 0;
 
-    const rect = ref.current.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left - rect.width / 2;
-    const offsetY = e.clientY - rect.top - rect.height / 2;
+  useEffect(() => {
+    // ensure initial values
+    s.set(1);
+    rx.set(0);
+    ry.set(0);
+  }, []); // eslint-disable-line
 
-    const rotationX = (offsetY / (rect.height / 2)) * -rotateAmplitude;
-    const rotationY = (offsetX / (rect.width / 2)) * rotateAmplitude;
+  function handlePointerMove(e) {
+    if (!rootRef.current || isTouch) return;
+    const rect = rootRef.current.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    // distance from center normalized -1..1
+    const nx = clamp((px - cx) / (rect.width / 2), -1, 1);
+    const ny = clamp((py - cy) / (rect.height / 2), -1, 1);
 
-    rotateX.set(rotationX);
-    rotateY.set(rotationY);
+    // rotate amplitude
+    const rotX = ny * -rotateAmplitude; // invert for natural tilt
+    const rotY = nx * rotateAmplitude;
 
-    x.set(e.clientX - rect.left);
-    y.set(e.clientY - rect.top);
-
-    const velocityY = offsetY - lastY;
-    rotateFigcaption.set(-velocityY * 0.6);
-    setLastY(offsetY);
+    rx.set(rotX);
+    ry.set(rotY);
+    mx.set(px);
+    my.set(py);
   }
 
-  function handleMouseEnter() {
-    scale.set(scaleOnHover);
-    opacity.set(1);
+  function handlePointerLeave() {
+    // reset
+    rx.set(0);
+    ry.set(0);
+    mx.set(0);
+    my.set(0);
+    s.set(1);
   }
 
-  function handleMouseLeave() {
-    opacity.set(0);
-    scale.set(1);
-    rotateX.set(0);
-    rotateY.set(0);
-    rotateFigcaption.set(0);
+  function handlePointerEnter() {
+    if (isTouch) return;
+    s.set(scaleOnHover);
   }
+
+  // small clamp util
+  function clamp(v, a, b) {
+    return Math.min(Math.max(v, a), b);
+  }
+
+  // inline styles for spotlight position using springed mx/my
+  const spotlightStyle = {
+    // left/top must center the radial gradient; we translate to center later
+    left: sMx,
+    top: sMy,
+  };
 
   return (
-    <figure
-      ref={ref}
-      className="tilted-card-figure"
-      style={{
-        height: containerHeight,
-        width: containerWidth
-      }}
-      onMouseMove={handleMouse}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+    <Motion.div
+      ref={rootRef}
+      className={`tilt-wrapper ${className}`}
+      style={{ width, height }}
+      onMouseMove={handlePointerMove}
+      onMouseEnter={handlePointerEnter}
+      onMouseLeave={handlePointerLeave}
+      onTouchStart={() => { /* disable tilt on touch, but still allow click */ }}
     >
-      {showMobileWarning && (
-        <div className="tilted-card-mobile-alert">This effect is not optimized for mobile. Check on desktop.</div>
-      )}
+      {/* Soft glow behind the card */}
+      {softGlow && <div className="tilt-glow" aria-hidden />}
 
+      {/* spotlight (follows cursor) */}
       <Motion.div
-        className="tilted-card-inner"
+        className="tilt-spotlight"
         style={{
-          width: imageWidth,
-          height: imageHeight,
-          rotateX,
-          rotateY,
-          scale
+          ...spotlightStyle,
+          // center the radial by translating by -50% using transform (Motion accepts transform style)
+          translateX: "-50%",
+          translateY: "-50%",
+        }}
+        aria-hidden
+      />
+
+      {/* shimmer sweep */}
+      {shimmer && <div className="tilt-shimmer" aria-hidden />}
+
+      {/* actual interactive inner card - reacts to rotate & scale */}
+      <Motion.div
+        className="tilt-inner"
+        style={{
+          rotateX: sRx,
+          rotateY: sRy,
+          scale: sS,
+          transformStyle: "preserve-3d",
         }}
       >
-        <Motion.img
-          src={imageSrc}
-          alt={altText}
-          className="tilted-card-img"
-          style={{
-            width: imageWidth,
-            height: imageHeight
-          }}
-        />
-
-        {displayOverlayContent && overlayContent && (
-          <Motion.div className="tilted-card-overlay">{overlayContent}</Motion.div>
-        )}
+        {/* CONTENT: render children (the existing CampaignCard) */}
+        <div className="tilt-content">
+          {children}
+        </div>
       </Motion.div>
-
-      {showTooltip && (
-        <motion.figcaption
-          className="tilted-card-caption"
-          style={{
-            x,
-            y,
-            opacity,
-            rotate: rotateFigcaption
-          }}
-        >
-          {captionText}
-        </motion.figcaption>
-      )}
-    </figure>
+    </Motion.div>
   );
 }

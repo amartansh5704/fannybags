@@ -27,60 +27,43 @@ export default function FilterPanel({ onFiltersChange }) {
   };
 
   const toggleFilters = () => {
-    console.log('Toggle function called, current isOpen:', isOpen);
     setIsOpen(!isOpen);
   };
 
   return (
     <div className="bg-fb-surface p-6 rounded-lg mb-8">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Filter & Search</h2>
-        
-        {/* Try a different button approach */}
-        <div 
+
+      {/* TOP BAR: Only "Show Filters" button on the right */}
+      <div className="flex justify-end items-center gap-4 mb-6">
+
+        <button
           onClick={toggleFilters}
+          className="px-4 py-2 rounded-lg text-white"
           style={{
-            padding: '8px 16px',
-            backgroundColor: '#FF48B9',
-            color: 'white',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            border: 'none',
-            fontSize: '14px'
+            backgroundColor: "#FF48B9",
+            whiteSpace: "nowrap",
+            fontSize: "14px"
           }}
         >
-          {isOpen ? 'Hide Filters' : 'Show Filters'}
-        </div>
+          {isOpen ? "Hide Filters" : "Show Filters"}
+        </button>
+
       </div>
 
-      {/* Search Bar - Always visible */}
-      <div className="mb-4">
-        <input
-          type="text"
-          value={filters.search}
-          onChange={(e) => handleFilterChange('search', e.target.value)}
-          placeholder="Search campaigns by title or description..."
-          className="w-full px-4 py-3 bg-fb-dark border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-fb-pink"
-        />
-      </div>
-
-      
-
-      {/* Filter Buttons - Only visible when isOpen is true */}
+      {/* FILTER SECTION */}
       {isOpen && (
         <div className="space-y-6">
-          <div className="p-4 bg-green-900 rounded">
-            <h3 className="text-lg font-bold text-green-400"></h3>
-          </div>
 
-          {/* Genre Filters */}
+          {/* GENRE */}
           <div>
             <h3 className="text-sm font-semibold text-gray-400 mb-2">Genre</h3>
             <div className="flex flex-wrap gap-2">
               {['All', 'Hip-Hop', 'Pop', 'Electronic', 'Rock', 'Jazz', 'Classical'].map((genre) => (
                 <button
                   key={genre}
-                  onClick={() => handleFilterChange('genre', genre === 'All' ? '' : genre)}
+                  onClick={() =>
+                    handleFilterChange('genre', genre === 'All' ? '' : genre)
+                  }
                   className={`px-3 py-1 rounded-full text-sm transition ${
                     filters.genre === (genre === 'All' ? '' : genre)
                       ? 'bg-fb-pink text-white'
@@ -93,7 +76,7 @@ export default function FilterPanel({ onFiltersChange }) {
             </div>
           </div>
 
-          {/* Price Range Filters */}
+          {/* PRICE RANGE */}
           <div>
             <h3 className="text-sm font-semibold text-gray-400 mb-2">Investment Range</h3>
             <div className="flex flex-wrap gap-2">
@@ -118,7 +101,7 @@ export default function FilterPanel({ onFiltersChange }) {
             </div>
           </div>
 
-          {/* Sort Dropdown */}
+          {/* SORT */}
           <div>
             <h3 className="text-sm font-semibold text-gray-400 mb-2">Sort By</h3>
             <select
@@ -134,7 +117,7 @@ export default function FilterPanel({ onFiltersChange }) {
             </select>
           </div>
 
-          {/* Clear Filters Button */}
+          {/* CLEAR BUTTON */}
           <div className="flex justify-end">
             <button
               onClick={clearFilters}
@@ -143,6 +126,7 @@ export default function FilterPanel({ onFiltersChange }) {
               Clear All Filters
             </button>
           </div>
+
         </div>
       )}
     </div>

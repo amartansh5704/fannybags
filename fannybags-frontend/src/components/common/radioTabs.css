@@ -1,0 +1,70 @@
+.tabs-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.tabs {
+  display: flex;
+  position: relative;
+  background-color: #111;
+  padding: 0.6rem;
+  border-radius: 99px;
+  gap: 4px;
+  border: 1px solid #333;
+}
+
+.tabs * {
+  z-index: 2;
+}
+
+.tabs input[type="radio"] {
+  display: none;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 14px;
+  color: #aaa;
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: color 0.15s ease-in;
+}
+
+.tabs input[type="radio"]:checked + .tab {
+  color: white;
+}
+
+.glider {
+  position: absolute;
+  height: 100%;
+  left: 0;
+  top: 0;
+  background: #50207A55;
+  backdrop-filter: blur(8px);
+  border-radius: 99px;
+  transition: 0.25s ease-out;
+  z-index: 1;
+}
+
+.tabs input[id="radio-0"]:checked ~ .glider {
+  transform: translateX(0%);
+}
+.tabs input[id="radio-1"]:checked ~ .glider {
+  transform: translateX(100%);
+}
+.tabs input[id="radio-2"]:checked ~ .glider {
+  transform: translateX(200%);
+}
+.tabs input[id="radio-3"]:checked ~ .glider {
+  transform: translateX(300%);
+}
+.tabs input[id="radio-4"]:checked ~ .glider {
+  transform: translateX(400%);
+}
+.tabs input[id="radio-5"]:checked ~ .glider {
+  transform: translateX(500%);
+}

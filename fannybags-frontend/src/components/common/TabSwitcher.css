@@ -1,0 +1,77 @@
+.tab-container {
+  display: flex;
+  gap: 0;
+}
+
+.tab-switcher {
+  position: relative;
+  display: flex;
+  background: transparent;
+  padding: 0;
+  border-radius: 12px;
+  gap: 0;
+}
+
+.tab-switcher input[type="radio"] {
+  display: none;
+}
+
+.tab-switcher .tab {
+  position: relative;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  color: #a0aec0;
+  background: transparent;
+  border: none;
+  transition: color 0.3s ease;
+  z-index: 1;
+  flex: 1;
+  text-align: center;
+}
+
+.tab-switcher input[type="radio"]:checked + .tab {
+  color: #fff;
+}
+
+.tab-switcher .glider {
+  position: absolute;
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, #FF48B9, #a855f7);
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+#radio-1:checked ~ .glider {
+  left: 0;
+  width: calc(33.333% - 0px);
+}
+
+#radio-2:checked ~ .glider {
+  left: calc(33.333%);
+  width: calc(33.333%);
+}
+
+#radio-3:checked ~ .glider {
+  left: calc(66.666%);
+  width: calc(33.333%);
+}
+
+.tab-notification {
+  display: inline-block;
+  margin-left: 6px;
+  background: #FF48B9;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  line-height: 20px;
+  text-align: center;
+  font-weight: bold;
+}

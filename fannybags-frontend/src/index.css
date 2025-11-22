@@ -30,8 +30,32 @@ html {
 }
 
 :root {
+  /* Brand Colors */
   --fb-purple: #50207A;
+  --fb-pink: #FF48B9;
+  --fb-green: #12CE6A;
+
+  /* Gradients */
+  --fb-gradient-primary: linear-gradient(135deg, #50207A 0%, #FF48B9 100%);
+  --fb-gradient-secondary: linear-gradient(135deg, #FF48B9 0%, #12CE6A 100%);
+  --fb-gradient-tertiary: linear-gradient(135deg, #50207A 0%, #12CE6A 100%);
+
+  /* Dark Theme */
+  --fb-dark: #0A0A0A;
+  --fb-surface: #1A1A1A;
+  --fb-border: #2A2A2A;
+
+  /* Shadows */
+  --fb-shadow-sm: 0 2px 8px rgba(80, 32, 122, 0.1);
+  --fb-shadow-md: 0 4px 16px rgba(255, 72, 185, 0.2);
+  --fb-shadow-lg: 0 8px 32px rgba(18, 206, 106, 0.15);
+
+  /* Animation Timings */
+  --fb-transition-fast: 0.15s;
+  --fb-transition-base: 0.3s;
+  --fb-transition-slow: 0.5s;
 }
+
 
 .text-fb-purple {
   color: #50207A;
@@ -59,4 +83,84 @@ section > * {
   pointer-events: none !important;
 }
 
+/* ===== FannyBags Glow Nav Tabs (dark, Uiverse-style) ===== */
 
+.fb-tabs {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: radial-gradient(circle at 0% 0%, #111827 0, #020617 55%, #000 100%);
+  padding: 0.4rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.9),
+    0 8px 24px rgba(15, 23, 42, 0.9),
+    0 0 24px rgba(255, 72, 185, 0.35);
+  min-width: 220px;
+  overflow: hidden;
+}
+
+/* ensure children sit above the glider */
+.fb-tabs * {
+  z-index: 2;
+}
+
+/* individual tab button */
+.fb-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 0.9rem;
+  font-size: 0.8rem;
+  color: #e5e7eb;
+  font-weight: 500;
+  border-radius: 999px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  outline: none;
+  user-select: none;
+  white-space: nowrap;
+  transition:
+    color 0.15s ease-in,
+    transform 0.15s ease-in;
+}
+
+.fb-tab:hover {
+  color: var(--fb-green);
+  transition: var(--fb-transition-fast);
+}
+
+
+/* active tab text = darker for contrast when on gradient */
+.fb-tab--active {
+  color: #020617;
+  font-weight: 600;
+}
+
+/* glider pill */
+.fb-glider {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  height: calc(100% - 8px);
+  background: linear-gradient(135deg, #ff48b9, #ec4899, #818cf8);
+  border-radius: 999px;
+  box-shadow:
+    0 0 18px rgba(255, 72, 185, 0.65),
+    0 0 32px rgba(129, 140, 248, 0.6);
+  z-index: 1;
+  transition: transform 0.25s ease-out, width 0.25s ease-out;
+}
+
+/* small screens: shrink a bit so it doesn't crowd the edge */
+@media (max-width: 640px) {
+  .fb-tabs {
+    transform: scale(0.9);
+    transform-origin: center right;
+  }
+}

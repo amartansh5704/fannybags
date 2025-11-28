@@ -1,19 +1,23 @@
-// src/pages/Landing.jsx
 import SmoothScroll from "../components/landing/SmoothScroll";
 import HeroSection from "../components/landing/HeroSection";
 import HowItWorksSection from "../components/landing/HowItWorksSection";
 import TrendingCampaignsSection from "../components/landing/TrendingCampaignsSection";
 import Footer from "../components/landing/Footer";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "../store/authStore";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { gsap } from "gsap";
+import DashboardTransition from "../components/transitions/DashboardTransition";
 
 gsap.registerPlugin(ScrollTrigger);
 
 export default function Landing() {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuthStore();
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
   useEffect(() => {
-    // Refresh GSAP after DOM paint so pinned sections calculate correctly.
-    // Slight delay helps when using SmoothScroll/Lenis.
     const t = setTimeout(() => {
       try {
         ScrollTrigger.refresh(true);
@@ -30,7 +34,6 @@ export default function Landing() {
 
     return () => {
       clearTimeout(t);
-      // remove any lingering triggers if component unmounts
       try {
         ScrollTrigger.getAll().forEach((s) => s.kill());
       } catch (e) {
@@ -39,40 +42,58 @@ export default function Landing() {
     };
   }, []);
 
-  // If you still need more room, increase this value.
-  const SPACER_HEIGHT_PX = 3000; // <-- adjust if needed
+  const handleMakeMeMoney = () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    // Start transition animation
+    setIsTransitioning(true);
+  };
+
+  const handleTransitionComplete = () => {
+    // Navigate after animation completes
+    navigate('/app/dashboard');
+    setIsTransitioning(false);
+  };
+
+  const SPACER_HEIGHT_PX = 3000;
+
+  if (isTransitioning) {
+    return (
+      <DashboardTransition 
+        isTransitioning={true} 
+        onComplete={handleTransitionComplete}
+      />
+    );
+  }
 
   return (
     <SmoothScroll>
       <main className="bg-primary text-white overflow-x-hidden">
+        {/* Make Me Money Button - Fixed Top Right */}
+        {handleMakeMeMoney}
+
         <div className="flex flex-col items-center justify-center w-full overflow-hidden">
-          {/* === HERO === */}
           <section id="hero" className="w-full min-h-screen">
             <HeroSection />
           </section>
 
-          {/* === HOW IT WORKS === */}
           <section id="how-it-works" className="w-full min-h-screen">
             <HowItWorksSection />
           </section>
 
-          {/* === TRENDING === */}
           <section id="trending" className="w-full">
             <TrendingCampaignsSection />
           </section>
 
-          {/* === MASSIVE SPACER === */}
           <div
             aria-hidden="true"
-            style={{
-              height: `${SPACER_HEIGHT_PX}px`,
-              width: "100%",
-            }}
+            style={{ height: `${SPACER_HEIGHT_PX}px`, width: "100%" }}
             className="bg-transparent"
           />
-
           
-          {/* === FOOTER === */}
           <section id="footer" className="w-full">
             <Footer />
           </section>

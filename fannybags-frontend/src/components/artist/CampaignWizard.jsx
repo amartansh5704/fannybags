@@ -6,8 +6,6 @@ export default function CampaignWizard({ onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [predictionLoading, setPredictionLoading] = useState(false);
-  const [aiPrediction, setAiPrediction] = useState(null);
   const [artworkFile, setArtworkFile] = useState(null);
   const [artworkPreview, setArtworkPreview] = useState(null);
   const [audioFile, setAudioFile] = useState(null);
@@ -18,34 +16,61 @@ export default function CampaignWizard({ onSuccess }) {
     title: '',
     description: '',
     genre: 'dhh',
-    
+
     // Step 2: Funding Details
     target_amount: 20000,
     partition_price: 1000,
     revenue_share_pct: 40,
-    
-    // Step 3: Timeline & Expectations
-    start_date: '',
-    end_date: '',
-    expected_streams_3m: 0,
-    expected_revenue_3m: 0,
-    sharing_term: '2 years',
-    
-    // AI Predictor Inputs
-    marketing_budget: 10000,
-    video_budget: 10000,
-    artist_followers: 15000
+
+    // NEW: Budget split (must sum to target_amount)
+    music_video_budget: 0,
+    marketing_budget: 0,
+    artist_fee: 0,
+
+    // Step 3: Timeline
+    campaign_start_date: '',
+    release_date: '',
+    sharing_term: '2 years'
   });
 
   const totalSteps = 4;
 
+  const numericFields = new Set([
+    'target_amount',
+    'partition_price',
+    'revenue_share_pct',
+    'music_video_budget',
+    'marketing_budget',
+    'artist_fee'
+  ]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+
+    // Special handling: when target_amount changes, auto-split into 3 budgets
+    if (name === 'target_amount') {
+      const total = parseFloat(value) || 0;
+
+      const each = Math.round(total / 3);
+      const mv = each;
+      const mk = each;
+      const af = total - mv - mk;
+
+      setFormData((prev) => ({
+        ...prev,
+        target_amount: total,
+        music_video_budget: mv,
+        marketing_budget: mk,
+        artist_fee: af
+      }));
+      return;
+    }
+
+    const parsedValue = numericFields.has(name) ? (parseFloat(value) || 0) : value;
+
+    setFormData((prev) => ({
       ...prev,
-      [name]: ['start_date', 'end_date', 'genre', 'sharing_term'].includes(name) 
-        ? value 
-        : parseFloat(value) || value
+      [name]: parsedValue
     }));
   };
 
@@ -71,36 +96,18 @@ export default function CampaignWizard({ onSuccess }) {
     }
   };
 
-  const handleAIPrediction = async () => {
-    setPredictionLoading(true);
-    try {
-      const result = await campaignService.predictRevenue({
-        genre: formData.genre,
-        marketing_budget: formData.marketing_budget,
-        video_budget: formData.video_budget,
-        artist_followers: formData.artist_followers,
-        revenue_share_pct: formData.revenue_share_pct
-      });
-      
-      if (result.success) {
-        setAiPrediction(result);
-        // Auto-fill expected values
-        setFormData(prev => ({
-          ...prev,
-          expected_streams_3m: result.prediction.total_streams_3m,
-          expected_revenue_3m: result.prediction.gross_revenue_3m
-        }));
-      }
-    } catch (err) {
-      console.error('AI Prediction failed:', err);
-    } finally {
-      setPredictionLoading(false);
-    }
+  // Helper to compute payout date = release_date + 90 days
+  const getPayoutDate = () => {
+    if (!formData.release_date) return null;
+    const d = new Date(formData.release_date);
+    if (Number.isNaN(d.getTime())) return null;
+    const payout = new Date(d.getTime() + 90 * 24 * 60 * 60 * 1000);
+    return payout;
   };
 
   const validateStep = () => {
     setError('');
-    
+
     if (currentStep === 1) {
       if (!formData.title.trim()) {
         setError('Campaign title is required');
@@ -111,7 +118,7 @@ export default function CampaignWizard({ onSuccess }) {
         return false;
       }
     }
-    
+
     if (currentStep === 2) {
       if (formData.target_amount <= 0) {
         setError('Target amount must be greater than 0');
@@ -125,60 +132,87 @@ export default function CampaignWizard({ onSuccess }) {
         setError('Revenue share must be between 1-100%');
         return false;
       }
+
+      // Check budgets sum to target amount
+      const sumBudgets =
+        (formData.music_video_budget || 0) +
+        (formData.marketing_budget || 0) +
+        (formData.artist_fee || 0);
+
+      if (Math.round(sumBudgets) !== Math.round(formData.target_amount)) {
+        setError('Music video, marketing and artist fee must add up exactly to the target amount');
+        return false;
+      }
     }
-    
+
     if (currentStep === 3) {
-      if (!formData.start_date || !formData.end_date) {
-        setError('Start and end dates are required');
+      if (!formData.campaign_start_date || !formData.release_date) {
+        setError('Campaign start date and release date are required');
         return false;
       }
-      const start = new Date(formData.start_date);
-      const end = new Date(formData.end_date);
-      if (end <= start) {
-        setError('End date must be after start date');
+      const start = new Date(formData.campaign_start_date);
+      const release = new Date(formData.release_date);
+      if (release <= start) {
+        setError('Release date must be after campaign start date');
         return false;
       }
     }
-    
+
     return true;
   };
 
   const nextStep = () => {
     if (validateStep()) {
-      setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+      setCurrentStep((prev) => Math.min(prev + 1, totalSteps));
     }
   };
 
   const prevStep = () => {
     setError('');
-    setCurrentStep(prev => Math.max(prev - 1, 1));
+    setCurrentStep((prev) => Math.max(prev - 1, 1));
   };
 
   const handleSubmit = async () => {
     if (!validateStep()) return;
-    
+
     setLoading(true);
     setError('');
 
     try {
+      // Prepare payload for backend
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        genre: formData.genre,
+        target_amount: formData.target_amount,
+        partition_price: formData.partition_price,
+        revenue_share_pct: formData.revenue_share_pct,
+        music_video_budget: formData.music_video_budget,
+        marketing_budget: formData.marketing_budget,
+        artist_fee: formData.artist_fee,
+        campaign_start_date: formData.campaign_start_date,
+        release_date: formData.release_date,
+        sharing_term: formData.sharing_term
+      };
+
       // First create the campaign
-      const result = await campaignService.createCampaign(formData);
+      const result = await campaignService.createCampaign(payload);
       const campaignId = result.campaign_id;
-      
+
       // Then upload artwork if exists
       if (artworkFile) {
         const artworkFormData = new FormData();
         artworkFormData.append('file', artworkFile);
         await campaignService.uploadArtwork(campaignId, artworkFormData);
       }
-      
+
       // Then upload audio if exists
       if (audioFile) {
         const audioFormData = new FormData();
         audioFormData.append('file', audioFile);
         await campaignService.uploadAudio(campaignId, audioFormData);
       }
-      
+
       setSuccess(`Campaign "${result.title}" created successfully!`);
       setTimeout(() => {
         onSuccess();
@@ -200,6 +234,8 @@ export default function CampaignWizard({ onSuccess }) {
     { value: 'bollywood', label: '🎬 Bollywood', desc: 'Film Music' },
     { value: 'punjabi', label: '🎺 Punjabi', desc: 'Punjabi Music' }
   ];
+
+  const payoutDate = getPayoutDate();
 
   return (
     <div className="bg-fb-surface rounded-lg p-8">
@@ -249,7 +285,7 @@ export default function CampaignWizard({ onSuccess }) {
       {currentStep === 1 && (
         <div className="space-y-6 animate-fadeIn">
           <h2 className="text-2xl font-bold mb-6">📝 Basic Campaign Info</h2>
-          
+
           <div>
             <label className="block text-sm font-medium mb-2">Campaign Title *</label>
             <input
@@ -272,8 +308,8 @@ export default function CampaignWizard({ onSuccess }) {
                   onClick={() => setFormData(prev => ({ ...prev, genre: genre.value }))}
                   className={`
                     p-4 rounded-lg border-2 text-left transition-all
-                    ${formData.genre === genre.value 
-                      ? 'border-fb-pink bg-fb-pink/10' 
+                    ${formData.genre === genre.value
+                      ? 'border-fb-pink bg-fb-pink/10'
                       : 'border-gray-700 hover:border-gray-600'}
                   `}
                 >
@@ -379,13 +415,13 @@ export default function CampaignWizard({ onSuccess }) {
             </div>
           </div>
         </div>
-      )}       
+      )}
 
       {/* Step 2: Funding Details */}
       {currentStep === 2 && (
         <div className="space-y-6 animate-fadeIn">
           <h2 className="text-2xl font-bold mb-6">💰 Funding Details</h2>
-          
+
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium mb-2">Target Amount (₹) *</label>
@@ -438,12 +474,59 @@ export default function CampaignWizard({ onSuccess }) {
             </div>
           </div>
 
+          {/* NEW: Budget Split */}
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 space-y-4">
+            <h3 className="font-semibold text-sm mb-1">Budget Split (must equal target amount)</h3>
+            <div className="grid md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Music Video Budget (₹)</label>
+                <input
+                  type="number"
+                  name="music_video_budget"
+                  value={formData.music_video_budget}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-fb-dark border border-gray-700 rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Marketing Budget (₹)</label>
+                <input
+                  type="number"
+                  name="marketing_budget"
+                  value={formData.marketing_budget}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-fb-dark border border-gray-700 rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Artist Fee (₹)</label>
+                <input
+                  type="number"
+                  name="artist_fee"
+                  value={formData.artist_fee}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-fb-dark border border-gray-700 rounded text-sm"
+                />
+              </div>
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              Sum: ₹
+              {(formData.music_video_budget || 0) +
+                (formData.marketing_budget || 0) +
+                (formData.artist_fee || 0)
+              }{' '}
+              / Target: ₹{formData.target_amount}
+            </div>
+          </div>
+
           <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
             <div className="flex justify-between items-center">
               <div>
                 <p className="font-semibold">Total Partitions</p>
                 <p className="text-2xl font-bold text-fb-pink">
-                  {Math.floor(formData.target_amount / formData.partition_price)}
+                  {formData.partition_price > 0
+                    ? Math.floor(formData.target_amount / formData.partition_price)
+                    : 0}
                 </p>
               </div>
               <div className="text-right">
@@ -455,29 +538,29 @@ export default function CampaignWizard({ onSuccess }) {
         </div>
       )}
 
-      {/* Step 3: Timeline & AI Prediction */}
+      {/* Step 3: Timeline & Payouts */}
       {currentStep === 3 && (
         <div className="space-y-6 animate-fadeIn">
-          <h2 className="text-2xl font-bold mb-6">📅 Timeline & Projections</h2>
-          
+          <h2 className="text-2xl font-bold mb-6">📅 Timeline & Payouts</h2>
+
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium mb-2">Campaign Start Date *</label>
               <input
                 type="datetime-local"
-                name="start_date"
-                value={formData.start_date}
+                name="campaign_start_date"
+                value={formData.campaign_start_date}
                 onChange={handleChange}
                 className="w-full px-4 py-3 bg-fb-dark border border-gray-700 rounded-lg focus:outline-none focus:border-fb-pink"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Campaign End Date *</label>
+              <label className="block text-sm font-medium mb-2">Track Release Date *</label>
               <input
                 type="datetime-local"
-                name="end_date"
-                value={formData.end_date}
+                name="release_date"
+                value={formData.release_date}
                 onChange={handleChange}
                 className="w-full px-4 py-3 bg-fb-dark border border-gray-700 rounded-lg focus:outline-none focus:border-fb-pink"
               />
@@ -496,97 +579,21 @@ export default function CampaignWizard({ onSuccess }) {
             />
           </div>
 
-          {/* AI Prediction Section */}
-          <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-lg p-6 border border-blue-500/30">
-            <h3 className="text-xl font-bold mb-4">🤖 AI Revenue Prediction</h3>
-            
-            <div className="grid md:grid-cols-3 gap-4 mb-4">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Marketing Budget (₹)</label>
-                <input
-                  type="number"
-                  name="marketing_budget"
-                  value={formData.marketing_budget}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-fb-dark border border-gray-700 rounded text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Video Budget (₹)</label>
-                <input
-                  type="number"
-                  name="video_budget"
-                  value={formData.video_budget}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-fb-dark border border-gray-700 rounded text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Your Followers</label>
-                <input
-                  type="number"
-                  name="artist_followers"
-                  value={formData.artist_followers}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 bg-fb-dark border border-gray-700 rounded text-sm"
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleAIPrediction}
-              disabled={predictionLoading}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-semibold hover:opacity-90 transition disabled:opacity-50"
-            >
-              {predictionLoading ? '🧠 Analyzing...' : '🚀 Get AI Prediction'}
-            </button>
-
-            {aiPrediction && (
-              <div className="mt-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-fb-dark p-3 rounded">
-                    <p className="text-xs text-gray-400">Expected Streams (3m)</p>
-                    <p className="text-lg font-bold text-white">
-                      {aiPrediction.prediction.total_streams_3m.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="bg-fb-dark p-3 rounded">
-                    <p className="text-xs text-gray-400">Expected Revenue (3m)</p>
-                    <p className="text-lg font-bold text-fb-green">
-                      ₹{aiPrediction.prediction.gross_revenue_3m.toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-xs text-green-400">
-                  ✅ Predictions auto-filled! You can edit them below if needed.
-                </div>
-              </div>
+          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 text-sm">
+            <p className="font-semibold mb-2">Payout Date</p>
+            {payoutDate ? (
+              <p className="text-gray-200">
+                First payout is scheduled for{' '}
+                <span className="font-bold">
+                  {payoutDate.toLocaleDateString()} {payoutDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>{' '}
+                (≈ 3 months after release)
+              </p>
+            ) : (
+              <p className="text-gray-400">
+                Select a release date to see the calculated payout date.
+              </p>
             )}
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium mb-2">Expected Streams (3 months)</label>
-              <input
-                type="number"
-                name="expected_streams_3m"
-                value={formData.expected_streams_3m}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-fb-dark border border-gray-700 rounded-lg focus:outline-none focus:border-fb-pink"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Expected Revenue (₹) (3 months)</label>
-              <input
-                type="number"
-                name="expected_revenue_3m"
-                value={formData.expected_revenue_3m}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-fb-dark border border-gray-700 rounded-lg focus:outline-none focus:border-fb-pink"
-              />
-            </div>
           </div>
         </div>
       )}
@@ -595,7 +602,7 @@ export default function CampaignWizard({ onSuccess }) {
       {currentStep === 4 && (
         <div className="space-y-6 animate-fadeIn">
           <h2 className="text-2xl font-bold mb-6">✅ Review & Publish</h2>
-          
+
           <div className="space-y-4">
             {/* Basic Info Review */}
             <div className="bg-fb-dark p-4 rounded-lg">
@@ -641,7 +648,25 @@ export default function CampaignWizard({ onSuccess }) {
                 </div>
                 <div>
                   <p className="text-gray-400">Total Partitions</p>
-                  <p className="font-bold">{Math.floor(formData.target_amount / formData.partition_price)}</p>
+                  <p className="font-bold">
+                    {formData.partition_price > 0
+                      ? Math.floor(formData.target_amount / formData.partition_price)
+                      : 0}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-400">Music Video Budget</p>
+                  <p className="font-bold">₹{formData.music_video_budget.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Marketing Budget</p>
+                  <p className="font-bold">₹{formData.marketing_budget.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-gray-400">Artist Fee</p>
+                  <p className="font-bold">₹{formData.artist_fee.toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -649,27 +674,37 @@ export default function CampaignWizard({ onSuccess }) {
             {/* Timeline Review */}
             <div className="bg-fb-dark p-4 rounded-lg">
               <div className="flex justify-between items-start mb-2">
-                <h3 className="font-bold text-fb-pink">Timeline & Projections</h3>
+                <h3 className="font-bold text-fb-pink">Timeline & Payouts</h3>
                 <button onClick={() => setCurrentStep(3)} className="text-xs text-blue-400 hover:underline">
                   Edit
                 </button>
               </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-gray-400">Start Date</p>
-                  <p className="font-bold">{new Date(formData.start_date).toLocaleDateString()}</p>
+                  <p className="text-gray-400">Campaign Start</p>
+                  <p className="font-bold">
+                    {formData.campaign_start_date
+                      ? new Date(formData.campaign_start_date).toLocaleString()
+                      : '-'}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-gray-400">End Date</p>
-                  <p className="font-bold">{new Date(formData.end_date).toLocaleDateString()}</p>
+                  <p className="text-gray-400">Release Date</p>
+                  <p className="font-bold">
+                    {formData.release_date
+                      ? new Date(formData.release_date).toLocaleString()
+                      : '-'}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Expected Streams</p>
-                  <p className="font-bold">{formData.expected_streams_3m.toLocaleString()}</p>
+                  <p className="text-gray-400">Payout Date</p>
+                  <p className="font-bold">
+                    {payoutDate ? payoutDate.toLocaleString() : '-'}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-gray-400">Expected Revenue</p>
-                  <p className="font-bold">₹{formData.expected_revenue_3m.toLocaleString()}</p>
+                  <p className="text-gray-400">Sharing Term</p>
+                  <p className="font-bold">{formData.sharing_term}</p>
                 </div>
               </div>
             </div>

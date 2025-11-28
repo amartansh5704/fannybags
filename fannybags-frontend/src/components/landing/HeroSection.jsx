@@ -98,34 +98,22 @@ export default function HeroSection() {
       />
 
       {/* Content */}
-      <div className="relative z-10 text-center px-6 max-w-4xl">
-        <h1 className="text-6xl md:text-7xl font-bold text-white mb-6 leading-tight">
-          Invest in Music.
-          <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-green-400">
-            Own the Vibe.
-          </span>
-        </h1>
+<div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
 
-        <p className="text-lg md:text-xl text-gray-300 mb-10">
-          Back your favorite artists. Earn royalties. Be part of the music revolution.
-        </p>
+  {/* Title */}
+  <h1 className="text-6xl md:text-7xl font-bold text-white mb-4 leading-tight">
+    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF48B9] to-[#12CE6A]">
+      FannyBags.
+    </span>
+  </h1>
 
-        <div className="flex flex-col sm:flex-row gap-6 justify-center">
-          <a
-            href="#how-it-works"
-            className="px-8 py-4 bg-gradient-to-r from-pink-500 to-green-400 text-white font-semibold rounded-full hover:scale-105 transition"
-          >
-            Start Investing
-          </a>
-          <a
-            href="#how-it-works"
-            className="px-8 py-4 border-2 border-gray-400 text-gray-300 font-semibold rounded-full hover:bg-gray-100/10 transition"
-          >
-            Learn More
-          </a>
-        </div>
-      </div>
+  {/* Subtitle */}
+  <p className="text-lg md:text-xl text-gray-300">
+    Make money from music.
+  </p>
+
+</div>
+
 
       {/* Scroll indicator */}
       <div className="absolute bottom-12 left-1/2 -translate-x-1/2">

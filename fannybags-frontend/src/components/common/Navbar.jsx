@@ -8,13 +8,19 @@ export default function Navbar() {
   const location = useLocation();
 
   // Base menu for authenticated users
-  const baseMenuItems = [
-    { id: 'explore', label: 'Explore', path: '/campaigns', allowed: true },
-    { id: 'dashboard', label: 'Dashboard', path: '/dashboard', allowed: true },
-    { id: 'wallet', label: 'Wallet', path: '/wallet', allowed: user?.role === 'investor' },
-    { id: 'artist', label: 'My Profile', path: user ? `/artist/${user.id}` : '#', allowed: user?.role === 'artist' },
-    { id: 'logout', label: 'Logout', path: 'logout', allowed: isAuthenticated },
-  ];
+  // Base menu for authenticated users
+const baseMenuItems = [
+  { id: 'explore', label: 'Explore', path: '/app/explore', allowed: true },
+  { id: 'dashboard', label: 'Dashboard', path: '/app/dashboard', allowed: true },
+  { id: 'wallet', label: 'Wallet', path: '/app/wallet', allowed: user?.role === 'investor' },
+  { id: 'artist', label: 'My Profile', path: user ? `/artist/${user.id}` : '#', allowed: user?.role === 'artist' },
+
+  // ⭐ NEW — Make Me Money (previous floating button)
+  
+
+  { id: 'logout', label: 'Logout', path: 'logout', allowed: isAuthenticated },
+];
+
 
   // Menu for guests
   const guestItems = [

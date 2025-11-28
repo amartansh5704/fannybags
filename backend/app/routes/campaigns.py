@@ -17,26 +17,29 @@ def create_campaign():
     user = User.query.get(user_id)
     if user.role != 'artist':
         return jsonify({'error': 'Only artists can create campaigns'}), 403
+
     data = request.get_json()
-    required_fields = ['title', 'target_amount', 'revenue_share_pct', 'partition_price']
+
+    required_fields = ['title', 'target_amount', 'revenue_share_pct', 'partition_price',
+                       'campaign_start_date', 'release_date',
+                       'music_video_budget', 'marketing_budget', 'artist_fee']
+
     if not all(field in data for field in required_fields):
         return jsonify({'error': 'Missing required fields'}), 400
+
+    # partitions
     total_partitions = int(data['target_amount'] / data['partition_price'])
-    
-    # Convert string dates to datetime objects
-    start_date = None
-    end_date = None
-    if data.get('start_date'):
-        try:
-            start_date = datetime.fromisoformat(data['start_date'])
-        except:
-            return jsonify({'error': 'Invalid start_date format'}), 400
-    if data.get('end_date'):
-        try:
-            end_date = datetime.fromisoformat(data['end_date'])
-        except:
-            return jsonify({'error': 'Invalid end_date format'}), 400
-    
+
+    # Dates
+    try:
+        campaign_start_date = datetime.fromisoformat(data['campaign_start_date'])
+        release_date = datetime.fromisoformat(data['release_date'])
+    except:
+        return jsonify({'error': 'Invalid date format'}), 400
+
+    payout_date = release_date + timedelta(days=90)  # 3 months
+
+    # Create campaign
     campaign = Campaign(
         artist_id=user_id,
         title=data['title'],
@@ -46,21 +49,28 @@ def create_campaign():
         revenue_share_pct=data['revenue_share_pct'],
         partition_price=data['partition_price'],
         total_partitions=total_partitions,
-        min_partitions_per_user=data.get('min_partitions_per_user', 1),
-        sharing_term=data.get('sharing_term'),
-        expected_streams_3m=data.get('expected_streams_3m'),
-        expected_revenue_3m=data.get('expected_revenue_3m'),
-        start_date=start_date,
-        end_date=end_date
+
+        # budgets
+        music_video_budget=data['music_video_budget'],
+        marketing_budget=data['marketing_budget'],
+        artist_fee=data['artist_fee'],
+
+        # dates
+        campaign_start_date=campaign_start_date,
+        release_date=release_date,
+        payout_date=payout_date,
     )
+
     db.session.add(campaign)
     db.session.commit()
+
     return jsonify({
         'message': 'Campaign created successfully',
         'campaign_id': campaign.id,
-        'title': campaign.title,
-        'total_partitions': total_partitions
+        'total_partitions': total_partitions,
+        'payout_date': payout_date.isoformat()
     }), 201
+
 
 @bp.route('', methods=['GET'])
 def list_campaigns():
@@ -220,7 +230,20 @@ def get_campaign(campaign_id):
     campaign = Campaign.query.get(campaign_id)
     if not campaign:
         return jsonify({'error': 'Campaign not found'}), 404
+
     artist = User.query.get(campaign.artist_id)
+
+    # 🔥 DATE FALLBACK LOGIC
+    # Old campaigns may use start_date / end_date
+    # New campaigns use campaign_start_date / payout_date / release_date
+    campaign_start_dt = getattr(campaign, 'campaign_start_date', None)
+    payout_dt = getattr(campaign, 'payout_date', None)
+    release_dt = getattr(campaign, 'release_date', None)
+
+    # Prefer explicit start_date/end_date if present, otherwise fall back
+    start_dt = campaign.start_date or campaign_start_dt
+    end_dt = campaign.end_date or payout_dt
+
     return jsonify({
         'id': campaign.id,
         'title': campaign.title,
@@ -231,17 +254,28 @@ def get_campaign(campaign_id):
         'partition_price': campaign.partition_price,
         'total_partitions': campaign.total_partitions,
         'funding_status': campaign.funding_status,
-        'artist_id': campaign.artist_id,  # 🔥 ADDED
+
+        'artist_id': campaign.artist_id,
         'artist_name': artist.name if artist else 'Unknown',
-        'artwork_url': campaign.artwork_url,  # 🔥 ADDED
-        'audio_preview_url': campaign.audio_preview_url,  # 🔥 ADDED
+        'artwork_url': campaign.artwork_url,
+        'artist_profile_image': artist.profile_image_url if artist and artist.profile_image_url else None,
+
+        'audio_preview_url': campaign.audio_preview_url,
         'sharing_term': campaign.sharing_term,
         'expected_streams_3m': campaign.expected_streams_3m,
         'expected_revenue_3m': campaign.expected_revenue_3m,
         'created_at': campaign.created_at.isoformat(),
-        'start_date': campaign.start_date.isoformat() if campaign.start_date else None,
-        'end_date': campaign.end_date.isoformat() if campaign.end_date else None
+
+        # ✅ Backwards-compatible fields used by your React UI
+        'start_date': start_dt.isoformat() if start_dt else None,
+        'end_date': end_dt.isoformat() if end_dt else None,
+
+        # ✅ Also expose the new fields explicitly (if you ever want them in UI)
+        'campaign_start_date': campaign_start_dt.isoformat() if campaign_start_dt else None,
+        'release_date': release_dt.isoformat() if release_dt else None,
+        'payout_date': payout_dt.isoformat() if payout_dt else None,
     }), 200
+
 
 @bp.route('/<int:campaign_id>/investments', methods=['GET'])
 def get_campaign_investments(campaign_id):

@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react'; // ← ADD useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import { FiMessageCircle, FiSend, FiTrash2, FiUser, FiCheckCircle } from 'react-icons/fi';
 import { getComments, createComment, deleteComment } from '../../services/commentService';
-import {useAuthStore} from '../../store/authStore';
+import { useAuthStore } from '../../store/authStore';
 
 const CommentSection = ({ campaignId }) => {
   const { user } = useAuthStore();
@@ -11,8 +11,6 @@ const CommentSection = ({ campaignId }) => {
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState(null);
 
-  // 🔥 WRAP fetchComments in useCallback
-  // This memoizes the function so it doesn't change on every render
   const fetchComments = useCallback(async () => {
     try {
       setLoading(true);
@@ -25,12 +23,11 @@ const CommentSection = ({ campaignId }) => {
     } finally {
       setLoading(false);
     }
-  }, [campaignId]); // ← Only recreate if campaignId changes
+  }, [campaignId]);
 
-  // Now useEffect is happy because fetchComments is in the dependency array
   useEffect(() => {
     fetchComments();
-  }, [fetchComments]); // ← Include fetchComments
+  }, [fetchComments]);
 
   const handlePostComment = async (e) => {
     e.preventDefault();
@@ -47,10 +44,8 @@ const CommentSection = ({ campaignId }) => {
     try {
       setPosting(true);
       const response = await createComment(campaignId, newComment.trim());
-      
-      // Add new comment to the top of the list
       setComments([response.comment, ...comments]);
-      setNewComment(''); // Clear input
+      setNewComment('');
       setError(null);
     } catch (err) {
       console.error('Failed to post comment:', err);
@@ -67,7 +62,6 @@ const CommentSection = ({ campaignId }) => {
 
     try {
       await deleteComment(commentId);
-      // Remove comment from list
       setComments(comments.filter(c => c.id !== commentId));
       setError(null);
     } catch (err) {
@@ -77,18 +71,18 @@ const CommentSection = ({ campaignId }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-8">
+    <div className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-2xl p-6">
       {/* Header */}
       <div className="flex items-center gap-2 mb-6">
-        <FiMessageCircle className="text-purple-600" size={24} />
-        <h2 className="text-2xl font-bold text-gray-900">
+        <FiMessageCircle className="text-[#FF48B9]" size={24} />
+        <h2 className="text-2xl font-bold text-white">
           Comments ({comments.length})
         </h2>
       </div>
 
       {/* Error Message */}
       {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400">
           {error}
         </div>
       )}
@@ -106,7 +100,7 @@ const CommentSection = ({ campaignId }) => {
                   className="w-10 h-10 rounded-full object-cover"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#FF48B9] to-[#8B5CF6] flex items-center justify-center">
                   <FiUser className="text-white" size={20} />
                 </div>
               )}
@@ -120,7 +114,7 @@ const CommentSection = ({ campaignId }) => {
                 placeholder="Add a comment..."
                 rows="3"
                 maxLength="1000"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                className="w-full px-4 py-3 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] text-white placeholder-gray-500 rounded-lg focus:ring-2 focus:ring-[#FF48B9] focus:border-transparent resize-none outline-none"
                 disabled={posting}
               />
               
@@ -132,7 +126,7 @@ const CommentSection = ({ campaignId }) => {
                 <button
                   type="submit"
                   disabled={posting || !newComment.trim()}
-                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-[#FF48B9] to-[#8B5CF6] text-white font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <FiSend size={18} />
                   {posting ? 'Posting...' : 'Post Comment'}
@@ -142,8 +136,8 @@ const CommentSection = ({ campaignId }) => {
           </div>
         </form>
       ) : (
-        <div className="mb-8 p-4 bg-gray-50 border border-gray-200 rounded-lg text-center text-gray-600">
-          <a href="/login" className="text-purple-600 hover:underline font-semibold">
+        <div className="mb-8 p-4 bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)] rounded-lg text-center text-gray-400">
+          <a href="/login" className="text-[#FF48B9] hover:underline font-semibold">
             Login
           </a> to join the conversation
         </div>
@@ -152,12 +146,12 @@ const CommentSection = ({ campaignId }) => {
       {/* Comments List */}
       {loading ? (
         <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF48B9]"></div>
         </div>
       ) : comments.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
-          <FiMessageCircle className="mx-auto mb-4 text-gray-400" size={48} />
-          <p className="text-lg">No comments yet</p>
+          <FiMessageCircle className="mx-auto mb-4 text-gray-600" size={48} />
+          <p className="text-lg text-gray-400">No comments yet</p>
           <p className="text-sm">Be the first to share your thoughts!</p>
         </div>
       ) : (
@@ -173,8 +167,8 @@ const CommentSection = ({ campaignId }) => {
                     className="w-10 h-10 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 flex items-center justify-center">
-                    <span className="text-white font-bold">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#8B5CF6] to-[#FF48B9] flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">
                       {comment.author.name.charAt(0).toUpperCase()}
                     </span>
                   </div>
@@ -185,18 +179,18 @@ const CommentSection = ({ campaignId }) => {
               <div className="flex-1 min-w-0">
                 {/* Author & Timestamp */}
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="font-semibold text-gray-900">
+                  <span className="font-semibold text-white">
                     {comment.author.name}
                   </span>
                   
                   {/* Verified Badge */}
                   {comment.author.verified && (
-                    <FiCheckCircle className="text-blue-500" size={16} title="Verified Artist" />
+                    <FiCheckCircle className="text-blue-400" size={16} title="Verified Artist" />
                   )}
                   
                   {/* Role Badge */}
                   {comment.author.role === 'artist' && (
-                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                    <span className="px-2 py-0.5 bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs font-medium rounded-full border border-[#8B5CF6]/30">
                       Artist
                     </span>
                   )}
@@ -207,16 +201,16 @@ const CommentSection = ({ campaignId }) => {
                 </div>
 
                 {/* Comment Text */}
-                <p className="text-gray-700 whitespace-pre-wrap break-words">
+                <p className="text-gray-300 whitespace-pre-wrap break-words">
                   {comment.body}
                 </p>
               </div>
 
-              {/* Delete Button (only for own comments) */}
+              {/* Delete Button */}
               {user && user.sub === comment.user_id && (
                 <button
                   onClick={() => handleDeleteComment(comment.id)}
-                  className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-2 text-red-400 hover:bg-red-500/10 rounded-lg"
                   title="Delete comment"
                 >
                   <FiTrash2 size={18} />

@@ -1,0 +1,97 @@
+/* --- DOCK OUTER WRAPPER (VERTICAL) --- */
+.dock-outer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  pointer-events: auto;
+}
+
+/* ------------- VERTICAL DOCK PANEL ------------- */
+.dock-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  padding: 1rem 0.75rem;
+  border-radius: 2rem;
+  background: rgba(10, 10, 15, 0.55);
+  backdrop-filter: blur(25px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 18px 45px rgba(0, 0, 0, 0.55),
+    0 0 60px rgba(255, 72, 185, 0.2),
+    inset 0 0 35px rgba(255, 255, 255, 0.03);
+  transition: all 0.25s ease;
+}
+
+/* --- DOCK ITEM (icons) --- */
+.dock-item {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background: radial-gradient(
+      circle at 50% 0%,
+      rgba(255, 72, 185, 0.16),
+      rgba(5, 3, 10, 0.9)
+    ),
+    rgba(10, 10, 15, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  cursor: pointer;
+  transition: all 180ms ease;
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.35),
+    0 0 18px rgba(60, 0, 120, 0.4);
+}
+
+.dock-item:hover {
+  transform: translateY(-3px);
+  border-color: #ff48b9;
+  box-shadow:
+    0 8px 25px rgba(255, 72, 185, 0.65),
+    0 0 50px rgba(139, 92, 246, 0.6);
+}
+
+/* ---- ACTIVE (CURRENT PAGE) ITEM ---- */
+.dock-item-active {
+  border-color: #ff48b9 !important;
+  background: radial-gradient(
+      circle at 50% 0%,
+      rgba(255, 72, 185, 0.42),
+      rgba(5, 3, 10, 0.95)
+    );
+  box-shadow:
+    0 0 35px rgba(255, 72, 185, 0.75),
+    0 0 70px rgba(139, 92, 246, 0.6);
+}
+
+.dock-item-active .dock-icon {
+  color: #ff48b9;
+}
+
+/* ----- ICON STYLE ----- */
+.dock-icon {
+  color: #e5e7eb;
+  transition: color 0.18s ease;
+}
+
+/* ---- TOOLTIP ---- */
+.dock-label {
+  position: absolute;
+  left: calc(100% + 12px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(5, 5, 10, 0.85);
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: white;
+  white-space: nowrap;
+  box-shadow:
+    0 10px 18px rgba(0, 0, 0, 0.55),
+    0 0 18px rgba(15, 23, 42, 0.9);
+}

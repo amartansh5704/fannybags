@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import ProgressBar from '../common/ProgressBar';
 import StatusBadge from '../common/StatusBadge';
 import { getCampaignStatus } from '../../utils/campaignUtils';
-import { IoShareSocial } from 'react-icons/io5'; // <-- ADDED
-import ShareModal from '../common/ShareModal'; // <-- ADDED
+import { IoShareSocial } from 'react-icons/io5';
+import ShareModal from '../common/ShareModal';
 
-// Reusable Badge component for our cards
 const CampaignBadge = ({ text, icon, colorClass }) => (
   <div className={`absolute top-2 left-2 flex items-center gap-1.5 rounded-full ${colorClass} px-3 py-1 text-xs font-bold text-white shadow-lg`}>
     {icon}
@@ -16,9 +15,12 @@ const CampaignBadge = ({ text, icon, colorClass }) => (
 
 export default function CampaignCard({ campaign, isFeatured, isTrending }) {
   const navigate = useNavigate();
-  const [showShare, setShowShare] = useState(false); // <-- ADDED
+  const location = useLocation();
+  const [showShare, setShowShare] = useState(false);
 
-  // 🔥 SAFETY: Extract values with fallbacks
+  // 🔥 Detect if we're in vertical layout
+  const isVerticalLayout = location.pathname.startsWith('/app');
+
   const amountRaised = campaign.amount_raised || 0;
   const targetAmount = campaign.target_amount || 1;
   const partitionPrice = campaign.partition_price || 0;
@@ -26,7 +28,6 @@ export default function CampaignCard({ campaign, isFeatured, isTrending }) {
   const percentage = (amountRaised / targetAmount) * 100;
   const status = getCampaignStatus(campaign);
   
-  // 🔥 Build full URLs for artwork and audio
   const artworkUrl = campaign.artwork_url 
     ? `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${campaign.artwork_url}`
     : null;
@@ -35,25 +36,30 @@ export default function CampaignCard({ campaign, isFeatured, isTrending }) {
     ? `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${campaign.audio_preview_url}`
     : null;
 
-  // --- DEFINE THE SHARE URL ---
-  // We build the full path. window.location.origin gives us "http://localhost:5173"
-  const shareUrl = `${window.location.origin}/campaign/${campaign.id}`; // <-- ADDED
+  // 🔥 Dynamic navigation based on layout
+  const handleCardClick = () => {
+    const targetPath = isVerticalLayout 
+      ? `/app/campaign/${campaign.id}` 
+      : `/campaign/${campaign.id}`;
+    navigate(targetPath);
+  };
+
+  const shareUrl = `${window.location.origin}/campaign/${campaign.id}`;
 
   return (
-    <> {/* <-- CHANGED TO FRAGMENT */}
+    <>
       <div
-        onClick={() => navigate(`/campaign/${campaign.id}`)}
-        className="bg-fb-surface rounded-lg overflow-hidden cursor-pointer hover:transform hover:scale-105 transition-transform duration-300 shadow-lg"
+        onClick={handleCardClick}
+        className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)] rounded-2xl overflow-hidden cursor-pointer hover:border-[rgba(255,72,185,0.3)] hover:transform hover:scale-105 transition-all duration-300"
       >
-        {/* Album Art Container - Updated with artwork */}
-        <div className="relative h-48 bg-gradient-to-r from-fb-purple to-fb-pink">
+        {/* Artwork */}
+        <div className="relative h-48 bg-gradient-to-br from-[#FF48B9] to-[#8B5CF6]">
           {artworkUrl ? (
             <img 
               src={artworkUrl} 
               alt={campaign.title || 'Campaign'}
               className="w-full h-full object-cover"
               onError={(e) => {
-                // Fallback if image fails to load
                 e.target.style.display = 'none';
                 e.target.parentElement.querySelector('.fallback-icon').style.display = 'flex';
               }}
@@ -66,7 +72,6 @@ export default function CampaignCard({ campaign, isFeatured, isTrending }) {
             <span className="text-6xl">🎵</span>
           </div>
           
-          {/* --- NEW BADGE LOGIC --- */}
           {isFeatured ? (
             <CampaignBadge 
               text="Editor's Pick" 
@@ -77,23 +82,20 @@ export default function CampaignCard({ campaign, isFeatured, isTrending }) {
             <CampaignBadge 
               text="Trending" 
               icon="🔥" 
-              colorClass="bg-fb-pink" 
+              colorClass="bg-[#FF48B9]" 
             />
           ) : null}
           
-          {/* Status Badge - Positioned on top-right of image */}
           <div className="absolute top-2 right-2">
             <StatusBadge status={status} />
           </div>
           
-          {/* Audio Preview Button */}
           {audioUrl && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 const audio = document.getElementById(`audio-${campaign.id}`);
                 if (audio.paused) {
-                  // Stop all other audio
                   document.querySelectorAll('audio').forEach(a => a.pause());
                   audio.play();
                 } else {
@@ -107,29 +109,24 @@ export default function CampaignCard({ campaign, isFeatured, isTrending }) {
             </button>
           )}
           
-          {/* Hidden Audio Element */}
           {audioUrl && (
             <audio id={`audio-${campaign.id}`} src={audioUrl} loop={false} />
           )}
         </div>
 
         <div className="p-6">
-          {/* Campaign Title */}
-          <h3 className="text-xl font-bold mb-2 truncate">{campaign.title || 'Untitled Campaign'}</h3>
+          <h3 className="text-xl font-bold mb-2 truncate text-white">{campaign.title || 'Untitled Campaign'}</h3>
           
-          {/* Artist Name if available */}
           {campaign.artist_name && (
-            <p className="text-sm text-fb-pink mb-2">
+            <p className="text-sm text-[#FF48B9] mb-2">
               by {campaign.artist_name}
             </p>
           )}
           
-          {/* Campaign Description */}
           <p className="text-gray-400 text-sm mb-4 line-clamp-2">
             {campaign.description || 'No description'}
           </p>
 
-          {/* Progress Bar Component */}
           <div className="mb-4">
             <ProgressBar 
               raised={amountRaised}
@@ -138,40 +135,36 @@ export default function CampaignCard({ campaign, isFeatured, isTrending }) {
             />
           </div>
 
-          {/* Campaign Stats - WITH SAFETY CHECKS */}
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <p className="text-gray-400 text-xs">Raised</p>
-              <p className="font-bold">₹{amountRaised.toLocaleString()}</p>
+              <p className="font-bold text-white">₹{amountRaised.toLocaleString()}</p>
             </div>
             <div>
               <p className="text-gray-400 text-xs">Per Share</p>
-              <p className="font-bold">₹{partitionPrice.toLocaleString()}</p>
+              <p className="font-bold text-white">₹{partitionPrice.toLocaleString()}</p>
             </div>
           </div>
 
-          {/* --- MODIFIED FOOTER --- */}
-          <div className="flex justify-between items-center text-sm text-gray-400 pt-3 border-t border-gray-600">
-            <span>{revenueSharePct}% revenue share</span>
+          <div className="flex justify-between items-center text-sm text-gray-400 pt-3 border-t border-gray-700">
+            <span className="text-[#12CE6A]">{revenueSharePct}% revenue share</span>
             
             <div className="flex items-center gap-4">
-              {/* Artist Button */}
               {campaign.artist_id && (
                 <button
                   onClick={(e) => {
-                    e.stopPropagation(); // <-- IMPORTANT
+                    e.stopPropagation();
                     navigate(`/artist/${campaign.artist_id}`);
                   }}
-                  className="text-fb-pink hover:text-white text-sm font-semibold"
+                  className="text-[#FF48B9] hover:text-white text-sm font-semibold"
                 >
                   View Artist
                 </button>
               )}
               
-              {/* Share Button */}
               <button
                 onClick={(e) => {
-                  e.stopPropagation(); // <-- CRITICAL: Prevents card click-through
+                  e.stopPropagation();
                   setShowShare(true);
                 }}
                 className="text-gray-400 hover:text-white"
@@ -181,12 +174,9 @@ export default function CampaignCard({ campaign, isFeatured, isTrending }) {
               </button>
             </div>
           </div>
-          {/* --- END OF MODIFICATION --- */}
-
         </div>
       </div>
 
-      {/* --- ADDED THIS MODAL --- */}
       {showShare && (
         <ShareModal
           title={campaign.title}
@@ -194,6 +184,6 @@ export default function CampaignCard({ campaign, isFeatured, isTrending }) {
           onClose={() => setShowShare(false)}
         />
       )}
-    </> // <-- CHANGED TO FRAGMENT
+    </>
   );
-} 
+}

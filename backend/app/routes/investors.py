@@ -273,6 +273,7 @@ def get_investor_portfolio(investor_id):
             'holding_id': holding.id,
             'campaign_id': campaign.id,
             'campaign_title': campaign.title,
+            'campaign_artwork_url': campaign.artwork_url,
             'artist_name': artist.name if artist else 'Unknown',
             'partitions_owned': holding.partitions_owned,
             'investment_amount': investment_amount,

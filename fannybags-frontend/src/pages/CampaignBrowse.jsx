@@ -17,14 +17,10 @@ export default function CampaignBrowse() {
     sort: "newest",
   });
 
-  // --------------------------
-  // 🧠 FILTER LOGIC (memoized)
-  // --------------------------
   const applyFilters = useCallback(
     (allCampaigns, filters, searchText) => {
       let filtered = [...allCampaigns];
 
-      // 🔍 Search filter
       if (searchText.trim() !== "") {
         const term = searchText.toLowerCase();
         filtered = filtered.filter(
@@ -34,7 +30,6 @@ export default function CampaignBrowse() {
         );
       }
 
-      // 💰 Price range filter
       if (filters.priceRange !== "all") {
         filtered = filtered.filter((c) => {
           const price = c.partition_price || 0;
@@ -51,7 +46,6 @@ export default function CampaignBrowse() {
         });
       }
 
-      // 🔽 Sort filter
       switch (filters.sort) {
         case "newest":
           filtered.sort(
@@ -85,24 +79,18 @@ export default function CampaignBrowse() {
     []
   );
 
-  // ------------------------------------------------
-  // 📌 Re-filter campaigns whenever ANY filter changes
-  // ------------------------------------------------
   useEffect(() => {
     const updated = applyFilters(campaigns, activeFilters, search);
     setFilteredCampaigns(updated);
   }, [campaigns, activeFilters, search, applyFilters]);
 
-  // -------------------------
-  // 📦 Fetch campaigns once
-  // -------------------------
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         const data = await campaignService.getAllCampaigns();
         setCampaigns(data);
-        setFilteredCampaigns(data); // initial load
+        setFilteredCampaigns(data);
       } catch {
         setError("Failed to load campaigns");
       } finally {
@@ -115,49 +103,72 @@ export default function CampaignBrowse() {
 
   if (loading)
     return (
-      <div className="min-h-screen bg-fb-dark text-white pt-20 flex items-center justify-center">
-        Loading campaigns...
+      <div className="grid grid-cols-[20%_80%] min-h-screen bg-[#0A0A0A] text-white">
+        <div></div>
+        <div className="flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-[#FF48B9] mx-auto mb-4"></div>
+            <p className="text-gray-400">Loading campaigns...</p>
+          </div>
+        </div>
       </div>
     );
 
   if (error)
     return (
-      <div className="min-h-screen bg-fb-dark text-white pt-20 flex items-center justify-center">
-        <p className="text-red-400">{error}</p>
+      <div className="grid grid-cols-[20%_80%] min-h-screen bg-[#0A0A0A] text-white">
+        <div></div>
+        <div className="flex items-center justify-center">
+          <p className="text-red-400">{error}</p>
+        </div>
       </div>
     );
 
   return (
-    <div className="min-h-screen bg-fb-dark text-white pt-32">
+    <div className="grid grid-cols-[20%_80%] min-h-screen bg-[#0A0A0A] text-white">
 
-      {/* 🔥 CENTERED SEARCH BAR */}
-      <div className="w-full flex justify-center" style={{ marginTop: "80px" }}>
-        <div style={{ width: "100%", maxWidth: "350px" }}>
-          <SearchBar
-            value={search}
-            onChange={setSearch}
-            placeholder="Search campaigns..."
-          />
-        </div>
-      </div>
+      {/* Left 20% (empty space) */}
+      <div></div>
 
-      {/* MAIN CONTENT */}
-      <div className="w-full px-4 sm:px-6 lg:px-10 py-10">
-        
-        <FilterPanel onFiltersChange={setActiveFilters} />
+      {/* Right 80% (canvas) */}
+      <div className="py-8 px-10">
 
-        <div className="mb-6 text-gray-400">
-          Showing {filteredCampaigns.length} of {campaigns.length} campaigns
+        {/* Search Bar */}
+        <div className="w-full flex justify-center pb-6">
+          <div style={{ width: "100%", maxWidth: "450px" }}>
+            <SearchBar
+              value={search}
+              onChange={setSearch}
+              placeholder="Search campaigns..."
+            />
+          </div>
         </div>
 
-        <AnimatedList
-          staggerDelay={0.1}
-          className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-        >
-          {filteredCampaigns.map((c) => (
-            <CampaignCard key={c.id} campaign={c} />
-          ))}
-        </AnimatedList>
+        {/* Filters + Grid */}
+        <div className="w-full max-w-7xl mx-auto">
+          <FilterPanel onFiltersChange={setActiveFilters} />
+
+          <div className="mb-6 text-gray-400 text-sm">
+            Showing {filteredCampaigns.length} of {campaigns.length} campaigns
+          </div>
+
+          {filteredCampaigns.length === 0 ? (
+            <div className="text-center py-20 text-gray-500">
+              <p className="text-4xl mb-4">🔍</p>
+              <p className="text-lg">No campaigns found</p>
+              <p className="text-sm">Try adjusting your filters</p>
+            </div>
+          ) : (
+            <AnimatedList
+              staggerDelay={0.1}
+              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {filteredCampaigns.map((c) => (
+                <CampaignCard key={c.id} campaign={c} />
+              ))}
+            </AnimatedList>
+          )}
+        </div>
       </div>
     </div>
   );

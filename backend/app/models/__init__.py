@@ -92,6 +92,16 @@ class Campaign(db.Model):
     sharing_term = db.Column(db.String(100), nullable=True) # Changed from String? If months, use Integer. Kept as String for now.
     expected_streams_3m = db.Column(db.Integer, nullable=True) # Good
     expected_revenue_3m = db.Column(db.Float, nullable=True) # Good
+        # NEW — Budget splits
+    music_video_budget = db.Column(db.Float, default=0)
+    marketing_budget = db.Column(db.Float, default=0)
+    artist_fee = db.Column(db.Float, default=0)
+
+    # NEW — Dates
+    campaign_start_date = db.Column(db.DateTime, nullable=True)
+    release_date = db.Column(db.DateTime, nullable=True)
+    payout_date = db.Column(db.DateTime, nullable=True)  # auto = release + 3 months
+
     start_date = db.Column(db.DateTime, nullable=True, index=True) # Added index
     end_date = db.Column(db.DateTime, nullable=True, index=True) # Added index
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True) # Added nullable=False, index
@@ -308,4 +318,15 @@ class Comment(db.Model):
             # We will add author details (like name and profile pic) when we fetch comments
             # in the API route later, by joining with the User table.
         }
+    
+class ArtistWithdrawal(db.Model):
+    __tablename__ = 'artist_withdrawals'
+
+    id = db.Column(db.Integer, primary_key=True)
+    artist_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    amount = db.Column(db.Float, nullable=False)
+    status = db.Column(db.String(20), default='pending')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 

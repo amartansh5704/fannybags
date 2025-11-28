@@ -143,28 +143,31 @@ def invest_from_wallet():
     try:
         user_id = get_jwt_identity()
         data = request.get_json()
-        
+
         campaign_id = data.get('campaign_id')
         amount = data.get('amount')
-        
+
         if not campaign_id or not amount or amount <= 0:
             return jsonify({'success': False, 'message': 'Invalid investment details'}), 400
-        
+
+        # Get investor wallet
         wallet = get_or_create_wallet(user_id)
-        
+
         if wallet.balance < amount:
             return jsonify({'success': False, 'message': f'Insufficient balance. Available: ₹{wallet.balance}'}), 400
-        
+
+        # Get campaign
         campaign = Campaign.query.get(campaign_id)
         if not campaign:
             return jsonify({'success': False, 'message': 'Campaign not found'}), 404
-        
+
+        # Deduct from investor wallet
         balance_before = wallet.balance
         wallet.balance -= amount
         wallet.total_invested += amount
         wallet.updated_at = datetime.utcnow()
-        
-        # Create wallet transaction
+
+        # Log investment transaction
         transaction = WalletTransaction(
             wallet_id=wallet.id,
             transaction_type='investment',
@@ -176,11 +179,11 @@ def invest_from_wallet():
             reference_type='campaign',
             status='completed'
         )
-        
+
         # Calculate partitions
         partitions = int(amount / campaign.partition_price)
-        
-        # Create Partition record
+
+        # Create Partition
         partition = Partition(
             campaign_id=campaign_id,
             buyer_id=user_id,
@@ -188,39 +191,86 @@ def invest_from_wallet():
             amount_paid=amount,
             status='confirmed'
         )
-        
-        # Update or create InvestorHolding (CRITICAL FIX)
+
+        # Update Investor Holdings
         from app.models import InvestorHolding
         holding = InvestorHolding.query.filter_by(
             campaign_id=campaign_id,
             investor_id=user_id
         ).first()
-        
+
         if holding:
-            # Update existing holding
             holding.partitions_owned += partitions
         else:
-            # Create new holding
             holding = InvestorHolding(
                 campaign_id=campaign_id,
                 investor_id=user_id,
                 partitions_owned=partitions
             )
             db.session.add(holding)
-        
-        # Calculate ownership percentage
+
+        # Update ownership %
         campaign.amount_raised += amount
         total_partitions = campaign.amount_raised / campaign.partition_price if campaign.partition_price > 0 else 0
+
         if total_partitions > 0:
             holding.ownership_pct = (holding.partitions_owned / total_partitions) * 100
-        
+
+        # ------------------------------------
+        # ✅ NEW: AUTO-SPLIT MONEY
+        # ------------------------------------
+        mv_budget = campaign.music_video_budget
+        marketing_budget = campaign.marketing_budget
+        artist_fee = campaign.artist_fee
+
+        total_split = mv_budget + marketing_budget + artist_fee
+
+        if total_split > 0:
+            # Scale the % distribution based on the set budgets
+            mv_cut = amount * (mv_budget / total_split)
+            marketing_cut = amount * (marketing_budget / total_split)
+            artist_cut = amount * (artist_fee / total_split)
+        else:
+            # Default: send everything to artist
+            mv_cut = 0
+            marketing_cut = 0
+            artist_cut = amount
+
+        # ------------------------------------
+        # ✅ SEND ARTIST FEE TO ARTIST WALLET
+        # ------------------------------------
+        artist_wallet = get_or_create_wallet(campaign.artist_id)
+        artist_balance_before = artist_wallet.balance
+
+        artist_wallet.balance += artist_cut
+        artist_wallet.total_earnings += artist_cut
+        artist_wallet.updated_at = datetime.utcnow()
+
+        artist_tx = WalletTransaction(
+            wallet_id=artist_wallet.id,
+            transaction_type='artist_fee',
+            amount=artist_cut,
+            balance_before=artist_balance_before,
+            balance_after=artist_wallet.balance,
+            description=f'Artist fee from investment in {campaign.title}',
+            status='completed'
+        )
+
+        db.session.add(artist_tx)
+        # ------------------------------------
+
         db.session.add(transaction)
         db.session.add(partition)
         db.session.commit()
-        
+
         return jsonify({
             'success': True,
             'message': f'Successfully invested ₹{amount}',
+            'split': {
+                'music_video': round(mv_cut, 2),
+                'marketing': round(marketing_cut, 2),
+                'artist_fee': round(artist_cut, 2)
+            },
             'data': {
                 'wallet': wallet.to_dict(),
                 'transaction': transaction.to_dict(),
@@ -230,7 +280,65 @@ def invest_from_wallet():
                 }
             }
         }), 200
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Investment failed: {str(e)}'}), 500
+
+    
+@bp.route('/artist/withdraw', methods=['POST'])
+@jwt_required()
+def artist_withdraw():
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'artist':
+        return jsonify({'error': 'Only artists can withdraw'}), 403
+
+    data = request.get_json()
+    amount = data.get('amount')
+
+    if not amount or amount <= 0:
+        return jsonify({'error': 'Invalid amount'}), 400
+
+    wallet = get_or_create_wallet(user_id)
+
+    if wallet.balance < amount:
+        return jsonify({'error': 'Insufficient wallet balance'}), 400
+
+    # Deduct
+    balance_before = wallet.balance
+    wallet.balance -= amount
+    wallet.total_withdrawn += amount
+    wallet.updated_at = datetime.utcnow()
+
+    # Save request
+    from app.models import ArtistWithdrawal
+    withdrawal = ArtistWithdrawal(
+        artist_id=user_id,
+        amount=amount,
+        status='pending'
+    )
+
+    # Save wallet transaction
+    tx = WalletTransaction(
+        wallet_id=wallet.id,
+        transaction_type='artist_withdrawal',
+        amount=amount,
+        balance_before=balance_before,
+        balance_after=wallet.balance,
+        description='Artist payout withdrawal request',
+        status='pending'
+    )
+
+    db.session.add(withdrawal)
+    db.session.add(tx)
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Withdrawal request submitted',
+        'withdrawal_id': withdrawal.id
+    }), 200
+
+
+

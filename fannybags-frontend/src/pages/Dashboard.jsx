@@ -186,7 +186,7 @@ export default function Dashboard() {
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
-                📊 Portfolio Overview
+                Portfolio Overview
               </button>
               <button
                 onClick={() => setActiveTab('wallet')}
@@ -196,7 +196,7 @@ export default function Dashboard() {
                     : 'text-gray-400 hover:text-white'
                 }`}
               >
-                💰 Wallet
+                Wallet
               </button>
             </div>
 
@@ -291,7 +291,7 @@ export default function Dashboard() {
                 ) : (
                   <>
                     <div className="mb-8">
-                      <h3 className="text-xl font-bold mb-6">📊 Campaign Analytics Dashboard</h3>
+                      <h3 className="text-xl font-bold mb-6">Campaign Analytics Dashboard</h3>
                       {campaigns.map((campaign) => (
                         <div key={campaign.id} className="mb-8">
                           <h4 className="text-lg font-semibold mb-4 text-fb-pink">{campaign.title}</h4>

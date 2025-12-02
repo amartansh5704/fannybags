@@ -14,6 +14,7 @@ export default {
       },
       fontFamily: {
         sans: ['Inter Variable', 'Poppins', 'sans-serif'],
+        heyam: ["Heyam", "sans-serif"],
       },
     },
   },

@@ -16,6 +16,18 @@ body {
 
 html {
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
+/* Hide scrollbar but keep scrolling */
+html::-webkit-scrollbar {
+  display: none;
+}
+
+html {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 @keyframes fadeIn {
@@ -163,4 +175,11 @@ section > * {
     transform: scale(0.9);
     transform-origin: center right;
   }
+}
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
 }

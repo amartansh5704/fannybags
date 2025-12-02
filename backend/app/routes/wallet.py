@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from app.models import User, Wallet, WalletTransaction, Campaign, Partition
+from app.models import User, Wallet, WalletTransaction, Campaign, Partition, ArtistWithdrawal
 from datetime import datetime
 
 bp = Blueprint('wallet', __name__, url_prefix='/api/wallet')
@@ -339,6 +339,82 @@ def artist_withdraw():
         'message': 'Withdrawal request submitted',
         'withdrawal_id': withdrawal.id
     }), 200
+
+# ================================
+# 🚨 ADMIN: VIEW ALL WITHDRAW REQUESTS
+# ================================
+@bp.route('/admin/withdrawals', methods=['GET'])
+@jwt_required()
+def admin_get_withdrawals():
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    withdrawals = ArtistWithdrawal.query.order_by(ArtistWithdrawal.created_at.desc()).all()
+
+    result = []
+    for w in withdrawals:
+        artist = User.query.get(w.artist_id)
+        result.append({
+            "id": w.id,
+            "artist_id": w.artist_id,
+            "artist_name": artist.name if artist else "Unknown",
+            "amount": w.amount,
+            "status": w.status,
+            "created_at": w.created_at.isoformat()
+        })
+
+    return jsonify({"withdrawals": result}), 200
+
+
+# ================================
+# 🚨 ADMIN: APPROVE WITHDRAWAL
+# ================================
+@bp.route('/admin/withdrawals/<int:withdrawal_id>/approve', methods=['POST'])
+@jwt_required()
+def admin_approve_withdrawal(withdrawal_id):
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from app.models import ArtistWithdrawal
+
+    withdrawal = ArtistWithdrawal.query.get(withdrawal_id)
+    if not withdrawal:
+        return jsonify({'error': 'Withdrawal request not found'}), 404
+
+    withdrawal.status = "approved"
+    db.session.commit()
+
+    return jsonify({"message": "Withdrawal approved"}), 200
+
+
+# ================================
+# 🚨 ADMIN: REJECT WITHDRAWAL
+# ================================
+@bp.route('/admin/withdrawals/<int:withdrawal_id>/reject', methods=['POST'])
+@jwt_required()
+def admin_reject_withdrawal(withdrawal_id):
+    user_id = int(get_jwt_identity())
+    user = User.query.get(user_id)
+
+    if user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    from app.models import ArtistWithdrawal
+
+    withdrawal = ArtistWithdrawal.query.get(withdrawal_id)
+    if not withdrawal:
+        return jsonify({'error': 'Withdrawal request not found'}), 404
+
+    withdrawal.status = "rejected"
+    db.session.commit()
+
+    return jsonify({"message": "Withdrawal rejected"}), 200
 
 
 

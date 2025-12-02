@@ -20,7 +20,7 @@ export default function HoldingsCard({ holding }) {
 
   return (
     <div
-      onClick={() => campaignId && navigate(`/campaign/${campaignId}`)}
+      onClick={() => campaignId && navigate(`/app/campaign/${campaignId}`)}
       className="group relative rounded-3xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl cursor-pointer"
       style={{
         background: 'radial-gradient(circle at 0% 0%, rgba(139,92,246,0.12) 0%, transparent 60%), linear-gradient(135deg, rgba(15,23,42,0.95), rgba(2,6,23,0.97))',

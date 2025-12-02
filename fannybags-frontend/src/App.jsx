@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Navbar from './components/common/Navbar';
-import Landing from './pages/landing';
+import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
@@ -18,6 +18,8 @@ import { Toaster } from 'react-hot-toast';
 import GlobalClickSpark from './components/reactbits/animations/GlobalClickSpark';
 import './styles/animations.css';
 import './styles/vertical-layout.css';
+import ArtistPayout from './pages/ArtistPayout';
+
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuthStore();
@@ -48,6 +50,10 @@ function App() {
         <Route path="/login" element={<><Navbar /><Login /></>} />
         <Route path="/register" element={<><Navbar /><Register /></>} />
         
+        {/* 🔥 Public Explore Routes */}
+        <Route path="/explore" element={<><Navbar /><CampaignBrowse /></>} />
+        <Route path="/explore/:id" element={<><Navbar /><CampaignDetail /></>} />
+        
         {/* Old routes (backward compatible) */}
         <Route path="/dashboard" element={<><Navbar /><Dashboard /></>} />
         <Route path="/campaigns" element={<><Navbar /><CampaignBrowse /></>} />
@@ -55,12 +61,14 @@ function App() {
         <Route path="/artist/:artistId" element={<><Navbar /><ArtistProfile /></>} />
         <Route path="/wallet" element={<><Navbar /><WalletDashboard /></>} />
         <Route path="/artist/edit-profile" element={<><Navbar /><EditArtistProfile /></>} />
+        <Route path="/artist/payout" element={<ArtistPayout />} />
+
         
-        {/* 🔥 NEW: Vertical Dashboard Routes */}
+        {/* 🔥 NEW: Vertical Dashboard Routes (Protected) */}
         <Route path="/app" element={
-          <ProtectedRoute>
+          
             <VerticalDashboardLayout />
-          </ProtectedRoute>
+        
         }>
           <Route index element={<Navigate to="/app/dashboard" replace />} />
           <Route path="dashboard" element={<VerticalDashboard />} />
@@ -68,6 +76,7 @@ function App() {
           <Route path="wallet" element={<WalletDashboard />} />
           {/* 🔥 NEW: Vertical campaign detail route */}
           <Route path="campaign/:id" element={<CampaignDetailVertical />} />
+          
         </Route>
       </Routes>
     </BrowserRouter>

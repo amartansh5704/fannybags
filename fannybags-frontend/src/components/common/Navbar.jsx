@@ -24,6 +24,7 @@ const baseMenuItems = [
 
   // Menu for guests
   const guestItems = [
+    { id: 'explore', label: 'Explore', path: '/app/explore' },
     { id: 'login', label: 'Login', path: '/login' },
     { id: 'signup', label: 'Sign Up', path: '/register' },
   ];

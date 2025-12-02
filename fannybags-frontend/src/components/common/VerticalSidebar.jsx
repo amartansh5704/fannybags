@@ -62,7 +62,7 @@ export default function VerticalSidebar() {
           <span className="text-white">Fanny</span>
           <span className="text-[#FF48B9]">Bags</span>
         </div>
-        <p className="text-xs text-gray-500 mt-1">Music Equity Platform</p>
+        <p className="text-xs text-gray-500 mt-1"></p>
       </div>
 
       {/* DOCK */}

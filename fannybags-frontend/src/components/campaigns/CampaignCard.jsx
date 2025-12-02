@@ -40,11 +40,11 @@ export default function CampaignCard({ campaign, isFeatured, isTrending }) {
   const handleCardClick = () => {
     const targetPath = isVerticalLayout 
       ? `/app/campaign/${campaign.id}` 
-      : `/campaign/${campaign.id}`;
+      : `/app/campaign/${campaign.id}`;
     navigate(targetPath);
   };
 
-  const shareUrl = `${window.location.origin}/campaign/${campaign.id}`;
+  const shareUrl = `${window.location.origin}/app/campaign/${campaign.id}`;
 
   return (
     <>

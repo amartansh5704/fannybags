@@ -328,5 +328,85 @@ class ArtistWithdrawal(db.Model):
     status = db.Column(db.String(20), default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+# --- RazorpayOrder Model ---
+# This stores all Razorpay payment/order information
+class RazorpayOrder(db.Model):
+    """
+    Stores Razorpay order information.
+    Created when user initiates a payment, updated when payment completes.
+    """
+    __tablename__ = 'razorpay_orders'
+
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # User who initiated the payment
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    
+    # Razorpay identifiers
+    razorpay_order_id = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    razorpay_payment_id = db.Column(db.String(100), unique=True, nullable=True, index=True)
+    razorpay_signature = db.Column(db.String(500), nullable=True)
+    
+    # Payment details
+    amount = db.Column(db.Float, nullable=False)  # Amount in INR (not paise)
+    currency = db.Column(db.String(10), default='INR', nullable=False)
+    
+    # Payment purpose
+    payment_type = db.Column(db.String(50), default='wallet_deposit', nullable=False, index=True)
+    # payment_type can be: 'wallet_deposit', 'direct_investment', etc.
+    
+    # Reference to what this payment is for (optional)
+    reference_id = db.Column(db.String(100), nullable=True)  # e.g., campaign_id for direct investment
+    reference_type = db.Column(db.String(50), nullable=True)  # e.g., 'campaign'
+    
+    # Status tracking
+    status = db.Column(db.String(20), default='created', nullable=False, index=True)
+    # Possible statuses: 'created', 'paid', 'failed', 'refunded'
+    
+    # Error tracking (if payment fails)
+    error_code = db.Column(db.String(50), nullable=True)
+    error_description = db.Column(db.Text, nullable=True)
+    
+    # Razorpay response data (full JSON for debugging)
+    razorpay_response = db.Column(db.JSON, nullable=True)
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    paid_at = db.Column(db.DateTime, nullable=True)
+
+    def __repr__(self):
+        return f'<RazorpayOrder {self.razorpay_order_id} - {self.status}>'
+
+    def to_dict(self):
+        """Convert to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'razorpay_order_id': self.razorpay_order_id,
+            'razorpay_payment_id': self.razorpay_payment_id,
+            'amount': self.amount,
+            'currency': self.currency,
+            'payment_type': self.payment_type,
+            'status': self.status,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'paid_at': self.paid_at.isoformat() if self.paid_at else None,
+        }
+    
+    def mark_as_paid(self, payment_id, signature):
+        """Mark order as successfully paid"""
+        self.razorpay_payment_id = payment_id
+        self.razorpay_signature = signature
+        self.status = 'paid'
+        self.paid_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
+    
+    def mark_as_failed(self, error_code=None, error_description=None):
+        """Mark order as failed"""
+        self.status = 'failed'
+        self.error_code = error_code
+        self.error_description = error_description
+        self.updated_at = datetime.utcnow()
+
 
 

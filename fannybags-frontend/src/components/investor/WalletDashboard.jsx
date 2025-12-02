@@ -120,21 +120,22 @@ const WalletDashboard = () => {
 
   return (
     <div
-      className="
-        w-full 
-        min-h-screen 
-        flex 
-        flex-col 
-        items-center 
-        justify-center
-        px-4 
-        text-white
-        bg-gradient-to-b 
-        from-[#120016] 
-        via-[#05000C] 
-        to-[#000000]
-      "
-    >
+  className="
+    w-full 
+    min-h-screen 
+    flex 
+    flex-col 
+    items-center
+    justify-center
+    px-4 
+    text-white
+    bg-gradient-to-b 
+    from-[#120016] 
+    via-[#05000C] 
+    to-[#000000]
+    
+  "
+>
       {/* Toast-style banners */}
       {error && (
         <div className="mb-4 max-w-lg w-full animate-[fadeIn_0.4s_ease-out] p-4 bg-red-500/10 border border-red-500/40 rounded-2xl text-red-200 text-sm shadow-[0_12px_30px_rgba(0,0,0,0.6)]">
@@ -153,6 +154,7 @@ const WalletDashboard = () => {
           relative 
           max-w-xl 
           w-full
+          translate-x-28
           overflow-hidden 
           rounded-[26px]
           p-6 md:p-8 mb-6
@@ -170,27 +172,27 @@ const WalletDashboard = () => {
         }}
       >
         {/* soft neon bloom */}
-        <div className="pointer-events-none absolute inset-0 opacity-70 mix-blend-screen bg-[radial-gradient(circle_at_0_0,#ffffff33,transparent_55%),radial-gradient(circle_at_100%_0,#12ce6a55,transparent_55%),radial-gradient(circle_at_50%_120%,#ff48b933,transparent_55%)]" />
+        <div className="pointer-events-none absolute inset-0 opacity-90 mix-blend-screen bg-[radial-gradient(circle_at_0_0,#ff48b9dd,transparent_50%),radial-gradient(circle_at_100%_0,#12ce6a77,transparent_55%),radial-gradient(circle_at_50%_120%,#ff48b977,transparent_55%)]" />
 
         <div className="relative flex flex-col gap-6">
           {/* header */}
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm md:text-base opacity-85">Overview</p>
-              <div className="mt-2 text-3xl md:text-5xl font-extrabold tracking-tight drop-shadow-[0_4px_18px_rgba(0,0,0,0.6)]">
-                ₹
-                <CountUp
-                  from={0}
-                  to={wallet?.balance || 0}
-                  duration={1.5}
-                  separator=","
-                  className="inline-block"
-                />
-              </div>
-              <p className="mt-1 text-xs md:text-sm opacity-80">
-                Available balance across your FannyBags wallet.
-              </p>
-            </div>
+          <div className="flex flex-col items-center justify-center gap-4 w-full">
+  <div className="text-center">
+    <p className="text-sm md:text-base opacity-85"></p>
+    <div className="mt-2 text-3xl md:text-5xl font-extrabold tracking-tight drop-shadow-[0_4px_18px_rgba(0,0,0,0.6)]">
+      ₹
+      <CountUp
+        from={0}
+        to={wallet?.balance || 0}
+        duration={1.5}
+        separator=","
+        className="inline-block"
+      />
+    </div>
+    <p className="mt-1 text-xs md:text-sm opacity-80">
+      Current Wallet Balance
+    </p>
+  </div>
 
             <button
               onClick={() => setShowDetails((prev) => !prev)}
@@ -216,21 +218,21 @@ const WalletDashboard = () => {
 
           {/* compact summary */}
           {!showDetails && (
-            <div className="grid grid-cols-2 gap-4 text-xs md:text-sm mt-2">
-              <div className="bg-black/25 rounded-2xl px-4 py-3 backdrop-blur border border-white/10">
-                <p className="opacity-80">Total Deposited</p>
-                <p className="mt-1 font-semibold">
-                  ₹{wallet?.total_deposited?.toLocaleString()}
-                </p>
-              </div>
-              <div className="bg-black/25 rounded-2xl px-4 py-3 backdrop-blur border border-white/10">
-                <p className="opacity-80">Total Earnings</p>
-                <p className="mt-1 font-semibold">
-                  ₹{wallet?.total_earnings?.toLocaleString()}
-                </p>
-              </div>
-            </div>
-          )}
+  <div className="grid grid-cols-2 gap-4 text-xs md:text-sm mt-2 justify-center">
+    <div className="bg-black/25 rounded-2xl px-4 py-3 backdrop-blur border border-white/10 text-center">
+      <p className="opacity-80">Total Deposited</p>
+      <p className="mt-1 font-semibold">
+        ₹{wallet?.total_deposited?.toLocaleString()}
+      </p>
+    </div>
+    <div className="bg-black/25 rounded-2xl px-4 py-3 backdrop-blur border border-white/10 text-center">
+      <p className="opacity-80">Total Earnings</p>
+      <p className="mt-1 font-semibold">
+        ₹{wallet?.total_earnings?.toLocaleString()}
+      </p>
+    </div>
+  </div>
+)}
 
           {/* breakdown pills */}
           {showDetails && (
@@ -339,6 +341,7 @@ const WalletDashboard = () => {
         <div
           className="
             w-full max-w-5xl
+            translate-x-28
             bg-[var(--fb-surface)]/92 
             border border-[var(--fb-border)] 
             rounded-[26px] 

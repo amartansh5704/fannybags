@@ -203,7 +203,7 @@ export default function TrendingCampaignsSection() {
         </Motion.h2>
 
         <p className="text-xl text-gray-300 mb-16">
-          Scroll to explore trending projects →
+          
         </p>
 
         {loading && (
@@ -213,12 +213,12 @@ export default function TrendingCampaignsSection() {
         )}
 
         {!loading && campaigns.length > 0 && (
-          <div className="relative flex justify-center items-center gap-8 h-[65vh] w-full">
+          <div className="relative flex justify-center items-center gap-8 h-[75vh] w-full">
             {campaigns.slice(0, 3).map((campaign, i) => (
               <div
                 key={campaign.id}
                 ref={(el) => (cardsRef.current[i] = el)}
-                className="absolute w-[70vw] md:w-[45vw] lg:w-[35vw] h-full bg-white/5 backdrop-blur-lg rounded-3xl p-4 border border-white/10 shadow-2xl overflow-hidden opacity-0 scale-0.9 translate-x-[200px] flex justify-center items-center"
+                className="absolute w-[80vw] md:w-[55vw] lg:w-[40vw] h-[60vh] bg-white//5 backdrop-blur-lg rounded-3xl p-4 border border-white/10 shadow-2xl overflow-hidden opacity-0 scale-0.9 translate-x-[200px] flex justify-center items-center"
                 style={{ transform: `translateX(${i * 200}px)` }}
               >
                 <CampaignCard campaign={campaign} isTrending={true} />

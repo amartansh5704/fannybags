@@ -102,10 +102,11 @@ export default function HeroSection() {
 
   {/* Title */}
   <h1 className="text-6xl md:text-7xl font-bold text-white mb-4 leading-tight">
-    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF48B9] to-[#12CE6A]">
-      FannyBags.
-    </span>
-  </h1>
+  <span className="font-heyam text-transparent bg-clip-text bg-gradient-to-r from-[#FF48B9] to-[#12CE6A]">
+    FannyBags
+  </span>
+</h1>
+
 
   {/* Subtitle */}
   <p className="text-lg md:text-xl text-gray-300">

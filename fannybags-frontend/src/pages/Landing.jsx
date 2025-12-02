@@ -71,7 +71,7 @@ export default function Landing() {
 
   return (
     <SmoothScroll>
-      <main className="bg-primary text-white overflow-x-hidden">
+      <main className="bg-primary text-white overflow-x-hidden min-h-screen w-screen">
         {/* Make Me Money Button - Fixed Top Right */}
         {handleMakeMeMoney}
 

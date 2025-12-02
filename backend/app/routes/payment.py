@@ -1,11 +1,13 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
-from app.models import User, Wallet, WalletTransaction
+from app.models import User, Wallet, WalletTransaction, RazorpayOrder
 from datetime import datetime
 import random
 import string
 import time
+import hmac
+import hashlib
 
 bp = Blueprint('payments', __name__, url_prefix='/api/payments')
 
@@ -362,5 +364,349 @@ def get_payment_config():
             'max_deposit': 100000,
             'currency': 'INR',
             'processing_time_seconds': MOCK_PROCESSING_TIME if USE_MOCK_GATEWAY else None
+        }
+    }), 200
+
+
+# =====================================================
+# =====================================================
+# RAZORPAY INTEGRATION - NEW CODE ADDED BELOW
+# =====================================================
+# =====================================================
+
+# Initialize Razorpay client (will be set up on first request)
+razorpay_client = None
+
+
+def get_razorpay_client():
+    """
+    Get or create Razorpay client instance.
+    This is done lazily to ensure app config is available.
+    """
+    global razorpay_client
+    if razorpay_client is None:
+        import razorpay
+        key_id = current_app.config.get('RAZORPAY_KEY_ID')
+        key_secret = current_app.config.get('RAZORPAY_KEY_SECRET')
+        
+        if not key_id or not key_secret:
+            raise ValueError("Razorpay API keys not configured. Please set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in config.")
+        
+        razorpay_client = razorpay.Client(auth=(key_id, key_secret))
+    return razorpay_client
+
+
+def get_or_create_wallet(user_id):
+    """Get existing wallet or create new one for user"""
+    wallet = Wallet.query.filter_by(user_id=user_id).first()
+    if not wallet:
+        wallet = Wallet(user_id=user_id, balance=0.0)
+        db.session.add(wallet)
+        db.session.commit()
+    return wallet
+
+
+def verify_razorpay_signature(order_id, payment_id, signature, secret):
+    """
+    Verify Razorpay payment signature.
+    This ensures the payment response hasn't been tampered with.
+    """
+    message = f"{order_id}|{payment_id}"
+    expected_signature = hmac.new(
+        secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected_signature, signature)
+
+
+# =============================
+# RAZORPAY ENDPOINTS
+# =============================
+
+@bp.route('/razorpay/create-order', methods=['POST'])
+@jwt_required()
+def create_razorpay_order():
+    """
+    Create a Razorpay order for payment.
+    
+    Request Body:
+    {
+        "amount": 1000,
+        "payment_type": "wallet_deposit"
+    }
+    """
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+        
+        data = request.get_json()
+        amount = data.get('amount')
+        payment_type = data.get('payment_type', 'wallet_deposit')
+        
+        # Validate amount
+        if not amount:
+            return jsonify({'success': False, 'error': 'Amount is required'}), 400
+        
+        try:
+            amount = float(amount)
+        except (ValueError, TypeError):
+            return jsonify({'success': False, 'error': 'Invalid amount format'}), 400
+        
+        if amount <= 0:
+            return jsonify({'success': False, 'error': 'Amount must be greater than 0'}), 400
+        
+        if amount < 1:
+            return jsonify({'success': False, 'error': 'Minimum amount is ₹1'}), 400
+        
+        if amount > 500000:
+            return jsonify({'success': False, 'error': 'Maximum amount is ₹5,00,000'}), 400
+        
+        # Get Razorpay client
+        client = get_razorpay_client()
+        
+        # Create order with Razorpay (amount in paise)
+        order_data = {
+            'amount': int(amount * 100),
+            'currency': current_app.config.get('RAZORPAY_CURRENCY', 'INR'),
+            'receipt': f'rcpt_{user_id}_{int(datetime.utcnow().timestamp())}',
+            'notes': {
+                'user_id': str(user_id),
+                'user_email': user.email,
+                'payment_type': payment_type
+            }
+        }
+        
+        razorpay_order = client.order.create(data=order_data)
+        
+        # Save order to database
+        db_order = RazorpayOrder(
+            user_id=user_id,
+            razorpay_order_id=razorpay_order['id'],
+            amount=amount,
+            currency=order_data['currency'],
+            payment_type=payment_type,
+            status='created',
+            razorpay_response=razorpay_order
+        )
+        db.session.add(db_order)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Order created successfully',
+            'data': {
+                'order_id': razorpay_order['id'],
+                'amount': amount,
+                'amount_in_paise': razorpay_order['amount'],
+                'currency': razorpay_order['currency'],
+                'key_id': current_app.config.get('RAZORPAY_KEY_ID'),
+                'db_order_id': db_order.id,
+                'user_name': user.name,
+                'user_email': user.email,
+                'user_phone': user.phone or '',
+                'company_name': current_app.config.get('RAZORPAY_COMPANY_NAME', 'FannyBags'),
+            }
+        }), 200
+        
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error creating Razorpay order: {str(e)}")
+        return jsonify({'success': False, 'error': f'Failed to create order: {str(e)}'}), 500
+
+
+@bp.route('/razorpay/verify', methods=['POST'])
+@jwt_required()
+def verify_razorpay_payment():
+    """
+    Verify Razorpay payment after checkout completion.
+    
+    Request Body:
+    {
+        "razorpay_order_id": "order_xxxxx",
+        "razorpay_payment_id": "pay_xxxxx",
+        "razorpay_signature": "signature_string"
+    }
+    """
+    try:
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found'}), 404
+        
+        data = request.get_json()
+        
+        razorpay_order_id = data.get('razorpay_order_id')
+        razorpay_payment_id = data.get('razorpay_payment_id')
+        razorpay_signature = data.get('razorpay_signature')
+        
+        if not all([razorpay_order_id, razorpay_payment_id, razorpay_signature]):
+            return jsonify({
+                'success': False, 
+                'error': 'Missing required payment verification fields'
+            }), 400
+        
+        # Find the order in database
+        db_order = RazorpayOrder.query.filter_by(
+            razorpay_order_id=razorpay_order_id,
+            user_id=user_id
+        ).first()
+        
+        if not db_order:
+            return jsonify({'success': False, 'error': 'Order not found'}), 404
+        
+        if db_order.status == 'paid':
+            return jsonify({
+                'success': False, 
+                'error': 'Payment already processed'
+            }), 400
+        
+        # Verify signature
+        key_secret = current_app.config.get('RAZORPAY_KEY_SECRET')
+        is_valid = verify_razorpay_signature(
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
+            key_secret
+        )
+        
+        if not is_valid:
+            db_order.mark_as_failed('SIGNATURE_INVALID', 'Payment signature verification failed')
+            db.session.commit()
+            
+            return jsonify({
+                'success': False, 
+                'error': 'Payment verification failed. Invalid signature.'
+            }), 400
+        
+        # Signature is valid - process the payment
+        wallet = get_or_create_wallet(user_id)
+        balance_before = wallet.balance
+        
+        # Update wallet balance
+        wallet.balance += db_order.amount
+        wallet.total_deposited += db_order.amount
+        wallet.updated_at = datetime.utcnow()
+        
+        # Create wallet transaction record
+        wallet_transaction = WalletTransaction(
+            wallet_id=wallet.id,
+            transaction_type='deposit',
+            amount=db_order.amount,
+            balance_before=balance_before,
+            balance_after=wallet.balance,
+            description=f'Razorpay deposit of ₹{db_order.amount}',
+            reference_id=razorpay_payment_id,
+            reference_type='razorpay_payment',
+            status='completed'
+        )
+        db.session.add(wallet_transaction)
+        
+        # Update order status
+        db_order.mark_as_paid(razorpay_payment_id, razorpay_signature)
+        
+        # Fetch payment details from Razorpay
+        try:
+            client = get_razorpay_client()
+            payment_details = client.payment.fetch(razorpay_payment_id)
+            db_order.razorpay_response = payment_details
+        except Exception as e:
+            current_app.logger.warning(f"Could not fetch payment details: {e}")
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Payment of ₹{db_order.amount} verified successfully!',
+            'data': {
+                'amount': db_order.amount,
+                'new_balance': wallet.balance,
+                'transaction_id': wallet_transaction.id,
+                'payment_id': razorpay_payment_id,
+                'order_id': razorpay_order_id
+            }
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error verifying payment: {str(e)}")
+        return jsonify({'success': False, 'error': f'Payment verification failed: {str(e)}'}), 500
+
+
+@bp.route('/razorpay/payment-status/<order_id>', methods=['GET'])
+@jwt_required()
+def get_razorpay_payment_status(order_id):
+    """
+    Get payment status for a specific order.
+    """
+    try:
+        user_id = get_jwt_identity()
+        
+        db_order = RazorpayOrder.query.filter_by(
+            razorpay_order_id=order_id,
+            user_id=user_id
+        ).first()
+        
+        if not db_order:
+            return jsonify({'success': False, 'error': 'Order not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'data': db_order.to_dict()
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/razorpay/orders', methods=['GET'])
+@jwt_required()
+def get_razorpay_user_orders():
+    """
+    Get all payment orders for the current user.
+    """
+    try:
+        user_id = get_jwt_identity()
+        
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        
+        orders = RazorpayOrder.query.filter_by(user_id=user_id).order_by(
+            RazorpayOrder.created_at.desc()
+        ).paginate(page=page, per_page=per_page, error_out=False)
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'orders': [order.to_dict() for order in orders.items],
+                'total': orders.total,
+                'pages': orders.pages,
+                'current_page': page
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/razorpay/config', methods=['GET'])
+def get_razorpay_config():
+    """
+    Get Razorpay configuration for frontend.
+    """
+    return jsonify({
+        'success': True,
+        'data': {
+            'key_id': current_app.config.get('RAZORPAY_KEY_ID'),
+            'currency': current_app.config.get('RAZORPAY_CURRENCY', 'INR'),
+            'company_name': current_app.config.get('RAZORPAY_COMPANY_NAME', 'FannyBags'),
+            'min_amount': 1,
+            'max_amount': 500000
         }
     }), 200

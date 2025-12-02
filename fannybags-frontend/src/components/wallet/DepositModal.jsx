@@ -1,25 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { FiX, FiDollarSign, FiCreditCard, FiCheckCircle, FiAlertCircle, FiLoader } from 'react-icons/fi';
-import { initiateDeposit, processDeposit, getPaymentMethods } from '../../services/paymentService';
-import ClickSpark from '../reactbits/animations/ClickSpark';
+import React, { useState, useEffect } from "react";
+import { FiX, FiCheckCircle, FiAlertCircle, FiLoader } from "react-icons/fi";
+import { 
+  initiateDeposit, 
+  processDeposit, 
+  getPaymentMethods,
+  initiateRazorpayPayment,          // ⭐ ADDED
+  isRazorpayLoaded                  // ⭐ ADDED
+} from "../../services/paymentService";
+import ClickSpark from "../reactbits/animations/ClickSpark";
 
 const DepositModal = ({ isOpen, onClose, onSuccess }) => {
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState("");
   const [processing, setProcessing] = useState(false);
-  const [step, setStep] = useState('input'); // input, processing, success, error
+  const [step, setStep] = useState("input");
   const [error, setError] = useState(null);
-  const [transactionId, setTransactionId] = useState(null);
   const [paymentMethods, setPaymentMethods] = useState([]);
-  const [selectedMethod, setSelectedMethod] = useState('upi');
-  const [paymentMode, setPaymentMode] = useState('mock');
+  const [selectedMethod, setSelectedMethod] = useState("upi");
 
-  // Predefined amounts for quick selection
+  const [paymentMode, setPaymentMode] = useState("mock");  // ⭐ ADDED for Razorpay mode
   const quickAmounts = [500, 1000, 2000, 5000, 10000];
 
-  // Fetch payment methods on mount
   useEffect(() => {
     if (isOpen) {
       fetchPaymentMethods();
+
+      // ⭐ Check Razorpay availability
+      if (isRazorpayLoaded()) {
+        setPaymentMode("razorpay");
+      } else {
+        setPaymentMode("mock");
+      }
     }
   }, [isOpen]);
 
@@ -27,319 +37,337 @@ const DepositModal = ({ isOpen, onClose, onSuccess }) => {
     try {
       const data = await getPaymentMethods();
       setPaymentMethods(data.methods || []);
-      setPaymentMode(data.mode || 'mock');
     } catch (err) {
-      console.error('Failed to fetch payment methods:', err);
-    }
-  };
-
-  const handleQuickAmount = (quickAmount) => {
-    setAmount(quickAmount.toString());
-    setError(null);
-  };
-
-  const handleAmountChange = (e) => {
-    const value = e.target.value;
-    // Only allow numbers
-    if (value === '' || /^\d+$/.test(value)) {
-      setAmount(value);
-      setError(null);
+      console.error("Failed to fetch payment methods:", err);
     }
   };
 
   const validateAmount = () => {
-    const numAmount = parseFloat(amount);
-
-    if (!amount || isNaN(numAmount)) {
-      setError('Please enter a valid amount');
-      return false;
-    }
-
-    if (numAmount < 100) {
-      setError('Minimum deposit amount is ₹100');
-      return false;
-    }
-
-    if (numAmount > 100000) {
-      setError('Maximum deposit amount is ₹1,00,000');
-      return false;
-    }
-
+    const num = parseFloat(amount);
+    if (!amount || isNaN(num)) return setError("Enter a valid amount"), false;
+    if (num < 100) return setError("Minimum deposit is ₹100"), false;
+    if (num > 100000) return setError("Maximum deposit is ₹1,00,000"), false;
+    setError(null);
     return true;
   };
 
-  const handleDeposit = async () => {
-    // Validate amount
-    if (!validateAmount()) {
-      return;
-    }
+  // ⭐ NEW — Handle Razorpay flow
+  const handleRazorpayDeposit = async () => {
+    if (!validateAmount()) return;
 
     setProcessing(true);
-    setError(null);
-    setStep('processing');
+    setStep("processing");
 
     try {
-      // Step 1: Initiate deposit
-      const initiateResponse = await initiateDeposit(parseFloat(amount));
+      const result = await initiateRazorpayPayment(parseFloat(amount), {
+        paymentType: "wallet_deposit",
+        description: `Add ₹${amount} to Wallet`,
+        themeColor: "#3B82F6"
+      });
 
-      if (!initiateResponse.success) {
-        throw new Error(initiateResponse.message || 'Failed to initiate deposit');
+      if (result.success) {
+        setStep("success");
+        setProcessing(false);
+        onSuccess && onSuccess(result);
+      }
+    } catch (err) {
+      console.log("Razorpay Error:", err);
+
+      if (err.dismissed) {
+        setStep("input");
+        setError(null);
+      } else {
+        setStep("error");
+        setError(err.message || "Payment failed");
       }
 
-      const txnId = initiateResponse.data.transaction_id;
-      setTransactionId(txnId);
+      setProcessing(false);
+    }
+  };
 
-      // Step 2: Process payment (simulate gateway)
-      const processResponse = await processDeposit(txnId);
+  // MOCK deposit (existing)
+  const handleMockDeposit = async () => {
+    if (!validateAmount()) return;
 
-      if (!processResponse.success) {
-        setStep('error');
-        setError(processResponse.message || 'Payment failed');
+    setProcessing(true);
+    setStep("processing");
+
+    try {
+      const init = await initiateDeposit(parseFloat(amount));
+      if (!init.success) throw new Error(init.message);
+
+      const proc = await processDeposit(init.data.transaction_id);
+      if (!proc.success) {
+        setStep("error");
+        setError(proc.message);
         setProcessing(false);
         return;
       }
 
-      // Step 3: Success!
-      setStep('success');
+      setStep("success");
       setProcessing(false);
-
-      // Call success callback with new balance
-      if (onSuccess) {
-        onSuccess(processResponse.data);
-      }
-
+      onSuccess && onSuccess(proc.data);
     } catch (err) {
-      console.error('Deposit failed:', err);
-      setStep('error');
-      setError(err.response?.data?.error || err.message || 'Payment processing failed. Please try again.');
+      setStep("error");
+      setError(err.response?.data?.error || err.message);
       setProcessing(false);
+    }
+  };
+
+  // ⭐ Decide between Razorpay or mock
+  const handleDeposit = async () => {
+    if (!validateAmount()) return;
+
+    if (paymentMode === "razorpay" && isRazorpayLoaded()) {
+      return handleRazorpayDeposit(); // ⭐ LIVE FLOW
+    } else {
+      return handleMockDeposit();     // ⭐ MOCK FLOW
     }
   };
 
   const handleClose = () => {
-    if (!processing) {
-      // Reset state
-      setAmount('');
-      setStep('input');
-      setError(null);
-      setTransactionId(null);
-      onClose();
-    }
-  };
-
-  const handleTryAgain = () => {
-    setStep('input');
+    if (processing) return;
+    setAmount("");
+    setStep("input");
     setError(null);
-    setTransactionId(null);
+    onClose();
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-pink-600 px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="bg-white bg-opacity-20 p-2 rounded-lg">
-              <FiDollarSign className="text-white" size={24} />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Add Money to Wallet</h2>
-              {paymentMode === 'mock' && (
-                <p className="text-xs text-white text-opacity-80">Mock Payment Mode (Testing)</p>
-              )}
-            </div>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xl p-4">
+
+      {/* GLASS CARD */}
+      <div
+        className="
+          w-full max-w-md 
+          rounded-3xl 
+          bg-white/10 
+          backdrop-blur-2xl 
+          border border-white/20 
+          shadow-[0_0_45px_rgba(0,0,0,0.6)]
+          overflow-hidden
+          animate-[fadeIn_0.3s_ease-out]
+        "
+      >
+
+        {/* HEADER — CENTERED TITLE */}
+        <div className="relative px-6 py-4 border-b border-white/10 bg-white/5 flex justify-center">
+          <h2 className="text-lg font-semibold text-white tracking-wide drop-shadow-sm">
+            Add Money
+          </h2>
+
+          {/* Close Button — positioned right */}
           <button
             onClick={handleClose}
             disabled={processing}
-            className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg transition-colors disabled:opacity-50"
+            className="
+              absolute right-6 top-1/2 -translate-y-1/2 
+              p-2 text-white rounded-xl 
+              hover:bg-white/20 transition 
+              disabled:opacity-40
+            "
           >
-            <FiX size={24} />
+            <FiX size={20} />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6">
-          {/* STEP 1: Input Amount */}
-          {step === 'input' && (
+        {/* BODY */}
+        <div className="px-6 py-6 text-white">
+          {step === "input" && (
             <>
-              {/* Amount Input */}
+              {/* AMOUNT INPUT */}
               <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm text-white/70 mb-2">
                   Enter Amount (₹)
                 </label>
+
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-xl font-bold">
-                    ₹
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40 text-2xl">
+                    
                   </span>
+
                   <input
                     type="text"
                     value={amount}
-                    onChange={handleAmountChange}
+                    onChange={(e) => /^\d*$/.test(e.target.value) && setAmount(e.target.value)}
                     placeholder="0"
-                    className="w-full pl-10 pr-4 py-4 text-2xl font-bold border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    disabled={processing}
-                    autoFocus
+                    className="
+                      w-full py-4 px-12 
+                      rounded-2xl 
+                      bg-white/10 
+                      border border-white/20 
+                      text-2xl font-semibold
+                      placeholder-white/30
+                      focus:ring-2 focus:ring-white/40
+                      outline-none
+                    "
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Min: ₹100 | Max: ₹1,00,000
+
+                <p className="text-xs text-white/50 mt-2">
+                  Min ₹100 · Max ₹1,00,000
                 </p>
               </div>
 
-              {/* Quick Amount Buttons */}
+              {/* QUICK SELECT */}
               <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm text-white/70 mb-2">
                   Quick Select
                 </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {quickAmounts.map((quickAmount) => (
+
+                <div className="grid grid-cols-3 gap-3">
+                  {quickAmounts.map((q) => (
                     <button
-                      key={quickAmount}
-                      onClick={() => handleQuickAmount(quickAmount)}
-                      className={`py-3 px-4 rounded-lg font-semibold transition-all ${
-                        amount === quickAmount.toString()
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                      }`}
+                      key={q}
+                      onClick={() => setAmount(q.toString())}
+                      className={`
+                        py-3 rounded-xl text-sm font-medium transition border
+                        ${
+                          amount == q
+                            ? "bg-blue-500/30 border-blue-400/50 shadow-[0_0_12px_rgba(80,180,255,0.5)]"
+                            : "bg-white/10 border-white/20 hover:bg-white/20"
+                        }
+                      `}
                     >
-                      ₹{quickAmount.toLocaleString()}
+                      ₹{q}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Payment Methods */}
+              {/* PAYMENT METHODS */}
               <div className="mb-6">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm text-white/70 mb-2">
                   Payment Method
                 </label>
+
                 <div className="grid grid-cols-2 gap-3">
                   {paymentMethods.map((method) => (
                     <button
                       key={method.id}
                       onClick={() => setSelectedMethod(method.id)}
                       disabled={!method.enabled}
-                      className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all ${
-                        selectedMethod === method.id
-                          ? 'border-purple-600 bg-purple-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      } ${!method.enabled && 'opacity-50 cursor-not-allowed'}`}
+                      className={`
+                        p-3 rounded-xl border transition backdrop-blur-xl
+                        ${
+                          selectedMethod === method.id
+                            ? "bg-blue-500/25 border-blue-400/40 text-white shadow-[0_0_12px_rgba(80,180,255,0.4)]"
+                            : "bg-white/10 border-white/20 hover:bg-white/20"
+                        }
+                        ${!method.enabled && "opacity-40 cursor-not-allowed"}
+                      `}
                     >
-                      <span className="text-2xl">{method.icon}</span>
-                      <span className="text-sm font-medium">{method.name}</span>
+                      {method.name}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Error Message */}
+              {/* ERROR */}
               {error && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-                  <FiAlertCircle className="text-red-600 mt-0.5 flex-shrink-0" size={18} />
-                  <p className="text-sm text-red-700">{error}</p>
+                <div className="mb-4 p-3 rounded-xl bg-red-500/20 border border-red-300/30 flex gap-2">
+                  <FiAlertCircle size={18} className="text-red-300" />
+                  <p className="text-red-200 text-sm">{error}</p>
                 </div>
               )}
 
-              {/* Action Buttons */}
+              {/* ACTION BUTTONS */}
               <div className="flex gap-3">
                 <button
                   onClick={handleClose}
-                  className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+                  className="
+                    flex-1 py-3 rounded-xl 
+                    bg-white/10 border border-white/20 
+                    text-white hover:bg-white/20 transition
+                  "
                 >
                   Cancel
                 </button>
-                <ClickSpark sparkColor="#12CE6A" sparkRadius={25} sparkCount={12}>
-  <button
-    onClick={handleDeposit}
-    disabled={!amount || processing}
-    className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-  >
-    Continue
-  </button>
-</ClickSpark>
+
+                <ClickSpark sparkColor="#ffffff" sparkRadius={18} sparkCount={10}>
+                  <button
+                    onClick={handleDeposit}
+                    disabled={!amount || processing}
+                    className="
+                      flex-1 py-3 rounded-xl 
+                      bg-blue-500/30 border border-blue-400/40 
+                      text-white font-semibold 
+                      hover:bg-blue-500/40 
+                      disabled:opacity-30 
+                      transition
+                    "
+                  >
+                    Continue
+                  </button>
+                </ClickSpark>
               </div>
             </>
           )}
 
-          {/* STEP 2: Processing */}
-          {step === 'processing' && (
+          {/* PROCESSING */}
+          {step === "processing" && (
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-purple-100 rounded-full mb-6">
-                <FiLoader className="text-purple-600 animate-spin" size={40} />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center">
+                <FiLoader size={36} className="text-white animate-spin" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                Processing Payment...
-              </h3>
-              <p className="text-gray-600 mb-4">
-                Please wait while we process your payment
-              </p>
-              <div className="max-w-xs mx-auto">
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-purple-600 to-pink-600 animate-pulse" style={{ width: '70%' }}></div>
-                </div>
-              </div>
-              <p className="text-xs text-gray-500 mt-4">
-                Transaction ID: {transactionId}
-              </p>
+              <p className="text-lg font-semibold text-white">Processing...</p>
             </div>
           )}
 
-          {/* STEP 3: Success */}
-          {step === 'success' && (
+          {/* SUCCESS */}
+          {step === "success" && (
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6">
-                <FiCheckCircle className="text-green-600" size={40} />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-green-400/20 border border-green-300/30 flex items-center justify-center">
+                <FiCheckCircle size={40} className="text-green-300" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                Deposit Successful!
-              </h3>
-              <p className="text-gray-600 mb-6">
-                ₹{parseFloat(amount).toLocaleString()} has been added to your wallet
-              </p>
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <p className="text-xs text-gray-500 mb-1">Transaction ID</p>
-                <p className="font-mono text-sm text-gray-700">{transactionId}</p>
-              </div>
+
+              <h3 className="text-xl font-bold text-white">Deposit Successful</h3>
+
               <button
                 onClick={handleClose}
-                className="w-full py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all"
+                className="
+                  w-full mt-6 py-3 rounded-xl 
+                  bg-white/20 border border-white/30 
+                  text-white hover:bg-white/30 transition
+                "
               >
                 Done
               </button>
             </div>
           )}
 
-          {/* STEP 4: Error */}
-          {step === 'error' && (
+          {/* ERROR */}
+          {step === "error" && (
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-20 h-20 bg-red-100 rounded-full mb-6">
-                <FiAlertCircle className="text-red-600" size={40} />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-500/20 border border-red-300/30 flex items-center justify-center">
+                <FiAlertCircle size={40} className="text-red-300" />
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                Payment Failed
-              </h3>
-              <p className="text-gray-600 mb-6">
-                {error || 'Something went wrong. Please try again.'}
-              </p>
-              {transactionId && (
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <p className="text-xs text-gray-500 mb-1">Transaction ID</p>
-                  <p className="font-mono text-sm text-gray-700">{transactionId}</p>
-                </div>
-              )}
-              <div className="flex gap-3">
+
+              <h3 className="text-xl font-bold text-red-300">Payment Failed</h3>
+              <p className="text-white/70 mt-3">{error}</p>
+
+              <div className="flex gap-3 mt-6">
                 <button
                   onClick={handleClose}
-                  className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+                  className="
+                    flex-1 py-3 rounded-xl 
+                    bg-white/10 border border-white/20 
+                    text-white hover:bg-white/20 transition
+                  "
                 >
                   Cancel
                 </button>
+
                 <button
-                  onClick={handleTryAgain}
-                  className="flex-1 py-3 px-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-semibold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all"
+                  onClick={() => setStep("input")}
+                  className="
+                    flex-1 py-3 rounded-xl 
+                    bg-white/20 border border-white/30 
+                    text-white font-semibold 
+                    hover:bg-white/30 transition
+                  "
                 >
                   Try Again
                 </button>
@@ -347,6 +375,7 @@ const DepositModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
           )}
         </div>
+
       </div>
     </div>
   );

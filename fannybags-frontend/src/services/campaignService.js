@@ -1,6 +1,15 @@
 import api from './api';
 
 export const campaignService = {
+
+uploadMonthlyRevenueReport: async (campaignId, formData) => {
+  const response = await api.post(`/campaigns/${campaignId}/revenue/upload`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+},
+
+
   getAllCampaigns: async () => {
     const response = await api.get('/campaigns');
     return response.data;
@@ -92,3 +101,4 @@ getTrendingCampaigns: async () => {
   }
 
 };
+

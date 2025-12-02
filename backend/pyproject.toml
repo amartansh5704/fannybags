@@ -1,0 +1,6 @@
+[project]
+name = "fannybags"
+version = "0.1.0"
+description = "FannyBags Backend"
+requires-python = ">=3.11,<3.12"
+

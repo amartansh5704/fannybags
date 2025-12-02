@@ -2,7 +2,8 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = 'http://127.0.0.1:5000/api';
+// Change this line - use your Render backend URL
+const API_BASE_URL = 'https://fannybags.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -17,7 +18,6 @@ api.interceptors.request.use(
     const token = Cookies.get('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
-      // Debug log
       console.log('Request headers:', config.headers);
     }
     return config;

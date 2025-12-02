@@ -59,5 +59,8 @@ def create_app():
         # Create tables - This is fine for development, but migrations
         # will handle this in production.
         db.create_all()
+
+        
     
     return app
+    

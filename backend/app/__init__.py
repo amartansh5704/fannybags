@@ -31,8 +31,8 @@ def create_app():
     # CORS headers on all responses (single place only)
     @app.after_request
     def after_request(response):
-        # ... (your CORS logic remains unchanged)
-        response.headers['Access-Control-Allow-Origin'] = 'http://localhost:5173'
+        allowed_origin = os.environ.get("CORS_ORIGINS", "http://localhost:5173")
+        response.headers['Access-Control-Allow-Origin'] = allowed_origin
         response.headers['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
         response.headers['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
         response.headers['Access-Control-Allow-Credentials'] = 'true'

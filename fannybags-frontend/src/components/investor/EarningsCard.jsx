@@ -15,7 +15,7 @@ export default function EarningsCard({ holding, actualEarnings = 0 }) {
   // 🎨 Campaign artwork - NOW IT WILL WORK!
   const artworkUrl = holding?.campaign_artwork_url;
   const fullArtworkUrl = artworkUrl 
-    ? `${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${artworkUrl}`
+    ? `${import.meta.env.VITE_API_BASE_URL|| 'http://127.0.0.1:5000'}${artworkUrl}`
     : null;
 
   return (

@@ -3,7 +3,9 @@ import axios from 'axios';
 import Cookies from 'js-cookie';
 
 // Change this line - use your Render backend URL
-const API_BASE_URL = 'https://fannybags.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000/api';
+
+console.log('🔥 API Base URL:', API_BASE_URL);
 
 const api = axios.create({
   baseURL: API_BASE_URL,

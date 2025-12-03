@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 
 .vercel
+
+# Environment files - UPDATED SECTION
+.env.local           # ✅ Keep this (ignored)
+.env.development     # ✅ Add this (ignored)

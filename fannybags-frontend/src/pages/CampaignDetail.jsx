@@ -155,7 +155,7 @@ export default function CampaignDetail() {
           <div className="w-full h-64 bg-gradient-to-r from-fb-purple to-fb-pink rounded-lg flex items-center justify-center mb-6 overflow-hidden relative">
             {campaign.artwork_url ? (
               <img 
-                src={`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${campaign.artwork_url}`}
+                src={`${import.meta.env.VITE_API_BASE_URL|| 'http://127.0.0.1:5000'}${campaign.artwork_url}`}
                 alt={campaign.title}
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -172,7 +172,7 @@ export default function CampaignDetail() {
                 <audio 
                   controls 
                   className="w-full"
-                  src={`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000'}${campaign.audio_preview_url}`}
+                  src={`${import.meta.env.VITE_API_BASE_URL|| 'http://127.0.0.1:5000'}${campaign.audio_preview_url}`}
                 >
                   Your browser does not support audio.
                 </audio>

@@ -16,7 +16,7 @@ export default function CampaignFeedCard({ campaign}) {
       <div className="relative h-48 bg-gradient-to-br from-[#FF48B9] to-[#8B5CF6] overflow-hidden group">
         {campaign.artwork_url ? (
           <img 
-            src={`${import.meta.env.VITE_API_BASE_URL|| 'http://127.0.0.1:5000'}${campaign.artwork_url}`}
+            src={`${import.meta.env.VITE_BACKEND_URL|| 'http://127.0.0.1:5000'}${campaign.artwork_url}`}
             alt={campaign.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
@@ -43,7 +43,7 @@ export default function CampaignFeedCard({ campaign}) {
             <audio 
               controls 
               className="w-full h-8 opacity-90 hover:opacity-100 transition-opacity"
-              src={`${import.meta.env.VITE_API_BASE_URL|| 'http://127.0.0.1:5000'}${campaign.audio_preview_url}`}
+              src={`${import.meta.env.VITE_BACKEND_URL|| 'http://127.0.0.1:5000'}${campaign.audio_preview_url}`}
             />
           </div>
         )}

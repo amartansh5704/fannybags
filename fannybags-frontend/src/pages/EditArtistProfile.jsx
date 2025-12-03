@@ -44,7 +44,7 @@ export default function EditArtistProfile() {
           twitter_url: profileData.social_links?.twitter || ''
         });
         if (profileData.profile_image_url) {
-          setImagePreview(`${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000'}${profileData.profile_image_url}`);
+          setImagePreview(`${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000'}${profileData.profile_image_url}`);
         }
       } catch (err) {
         setError('Failed to load profile data.');

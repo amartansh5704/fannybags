@@ -28,11 +28,11 @@ export default function CampaignCard({ campaign, isFeatured, isTrending }) {
   
   // 🔥 Build full URLs for artwork and audio
   const artworkUrl = campaign.artwork_url 
-    ? `${import.meta.env.VITE_API_BASE_URL|| 'http://127.0.0.1:5000'}${campaign.artwork_url}`
+    ? `${import.meta.env.VITE_BACKEND_URL|| 'http://127.0.0.1:5000'}${campaign.artwork_url}`
     : null;
     
   const audioUrl = campaign.audio_preview_url
-    ? `${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000'}${campaign.audio_preview_url}`
+    ? `${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000'}${campaign.audio_preview_url}`
     : null;
 
   // --- DEFINE THE SHARE URL ---

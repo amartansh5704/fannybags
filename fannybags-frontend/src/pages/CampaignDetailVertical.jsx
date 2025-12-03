@@ -170,7 +170,7 @@ export default function CampaignDetailVertical() {
     (campaign.amount_raised / campaign.target_amount) * 100;
 
   const artworkUrl = campaign.artwork_url
-    ? `${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000'}${
+    ? `${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000'}${
         campaign.artwork_url
       }`
     : null;
@@ -331,7 +331,7 @@ export default function CampaignDetailVertical() {
                       {campaign.artist_profile_image ? (
                         <img
                           src={`${
-                            import.meta.env.VITE_API_BASE_URL|| 'http://127.0.0.1:5000'
+                            import.meta.env.VITE_BACKEND_URL|| 'http://127.0.0.1:5000'
                           }${campaign.artist_profile_image}`}
                           alt={campaign.artist_name}
                           className="w-full h-full object-cover"
@@ -419,7 +419,7 @@ export default function CampaignDetailVertical() {
                 ref={audioRef}
                 className="hidden"
                 src={`${
-                  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000'
+                  import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000'
                 }${campaign.audio_preview_url}`}
               />
             )}

@@ -75,7 +75,7 @@ export default function ArtistProfile() {
             <div className="flex-shrink-0">
               {artist.profile_image_url ? (
                 <img
-                  src={`${import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000'}${artist.profile_image_url}`}
+                  src={`${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:5000'}${artist.profile_image_url}`}
                   alt={artist.name}
                   className="w-28 h-28 md:w-32 md:h-32 rounded-2xl object-cover border border-white/10 shadow-xl"
                   onError={(e) => {
@@ -251,7 +251,7 @@ export default function ArtistProfile() {
                 >
                   {campaign.artwork_url ? (
                     <img 
-                      src={`${import.meta.env.VITE_API_BASE_URL|| 'http://127.0.0.1:5000'}${campaign.artwork_url}`} 
+                      src={`${import.meta.env.VITE_BACKEND_URL|| 'http://127.0.0.1:5000'}${campaign.artwork_url}`} 
                       alt={campaign.title} 
                       className="w-full h-44 object-cover"
                     />
